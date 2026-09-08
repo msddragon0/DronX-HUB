@@ -1,5 +1,5 @@
 -- ============================================================
--- DRONX – SCRIPT ÚNICO E FUNCIONAL (SEM FRESCURA)
+-- DRONX – GUI Estilo Azure/W-Azure com funcionalidades
 -- ============================================================
 
 print("[DRONX] Carregando...")
@@ -81,7 +81,7 @@ coroutine.wrap(function()
     end
 end)()
 
--- ====== CRIAÇÃO DA GUI ======
+-- ====== CRIAÇÃO DA GUI (ESTILO AZURE/W-AZURE) ======
 local function criarGUI()
     local guiParent = game:GetService("CoreGui") or player:WaitForChild("PlayerGui")
     if not guiParent then return warn("[DRONX] Sem pai") end
@@ -91,117 +91,254 @@ local function criarGUI()
     screenGui.ResetOnSpawn = false
     screenGui.Parent = guiParent
 
-    -- Janela principal
+    local COLORS = {
+        background = Color3.fromRGB(10, 14, 24),
+        panel = Color3.fromRGB(16, 22, 36),
+        panelLight = Color3.fromRGB(22, 30, 48),
+        panelHover = Color3.fromRGB(29, 39, 61),
+        blue = Color3.fromRGB(61, 151, 255),
+        blueDark = Color3.fromRGB(31, 92, 173),
+        cyan = Color3.fromRGB(72, 215, 255),
+        white = Color3.fromRGB(239, 244, 255),
+        muted = Color3.fromRGB(144, 158, 185),
+        border = Color3.fromRGB(44, 59, 88),
+        green = Color3.fromRGB(76, 211, 141),
+        red = Color3.fromRGB(255, 70, 70),
+        gold = Color3.fromRGB(255, 215, 0),
+    }
+
+    local function corner(parent, radius)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, radius or 8)
+        c.Parent = parent
+    end
+
+    local function stroke(parent, color, thickness)
+        local s = Instance.new("UIStroke")
+        s.Color = color or COLORS.border
+        s.Thickness = thickness or 1
+        s.Parent = parent
+    end
+
+    local function label(parent, text, size, color, font, align)
+        local l = Instance.new("TextLabel")
+        l.BackgroundTransparency = 1
+        l.Text = text
+        l.TextColor3 = color or COLORS.white
+        l.TextSize = size or 14
+        l.Font = font or Enum.Font.Gotham
+        l.TextXAlignment = align or Enum.TextXAlignment.Left
+        l.TextYAlignment = Enum.TextYAlignment.Center
+        l.Parent = parent
+        return l
+    end
+
+    -- ====== JANELA PRINCIPAL ======
     local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 400, 0, 350)
-    main.Position = UDim2.new(0.5, -200, 0.5, -175)
-    main.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-    main.BorderSizePixel = 1
-    main.BorderColor3 = Color3.fromRGB(60, 60, 70)
+    main.Size = UDim2.new(0, 420, 0, 480)
+    main.Position = UDim2.new(0.5, -210, 0.5, -240)
+    main.BackgroundColor3 = COLORS.panel
+    main.BorderSizePixel = 0
+    main.ClipsDescendants = true
     main.Active = true
     main.Draggable = true
     main.Parent = screenGui
+    corner(main, 12)
+    stroke(main, COLORS.border, 1)
 
-    -- Título
-    local titulo = Instance.new("TextLabel")
-    titulo.Size = UDim2.new(1, 0, 0, 35)
-    titulo.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    titulo.Text = "DRONX"
-    titulo.TextColor3 = Color3.fromRGB(255, 215, 0)
-    titulo.TextScaled = true
-    titulo.Font = Enum.Font.GothamBold
-    titulo.Parent = main
+    -- ====== TOP BAR ======
+    local topBar = Instance.new("Frame")
+    topBar.Size = UDim2.new(1, 0, 0, 50)
+    topBar.BackgroundColor3 = COLORS.panelLight
+    topBar.BorderSizePixel = 0
+    topBar.Parent = main
 
-    -- Fechar
-    local fechar = Instance.new("TextButton")
-    fechar.Size = UDim2.new(0, 30, 0, 30)
-    fechar.Position = UDim2.new(1, -35, 0, 3)
-    fechar.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-    fechar.Text = "X"
-    fechar.TextColor3 = Color3.fromRGB(255, 255, 255)
-    fechar.TextScaled = true
-    fechar.Font = Enum.Font.GothamBold
-    fechar.Parent = main
-    fechar.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+    local accent = Instance.new("Frame")
+    accent.Size = UDim2.new(0, 4, 1, 0)
+    accent.BackgroundColor3 = COLORS.blue
+    accent.BorderSizePixel = 0
+    accent.Parent = topBar
 
-    -- Container
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -10, 1, -45)
-    container.Position = UDim2.new(0, 5, 0, 40)
-    container.BackgroundTransparency = 1
-    container.Parent = main
+    local logo = Instance.new("Frame")
+    logo.Size = UDim2.new(0, 32, 0, 32)
+    logo.Position = UDim2.new(0, 14, 0.5, -16)
+    logo.BackgroundColor3 = COLORS.blueDark
+    logo.Parent = topBar
+    corner(logo, 8)
 
-    -- Função checkbox
-    local function checkbox(text, var, y)
+    local logoText = label(logo, "D", 18, COLORS.white, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+    logoText.Size = UDim2.fromScale(1, 1)
+
+    local title = label(topBar, "DRONX", 18, COLORS.white, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    title.Position = UDim2.new(0, 56, 0, 8)
+    title.Size = UDim2.new(0, 160, 0, 22)
+
+    local subtitle = label(topBar, "FARM CONTROLS", 10, COLORS.cyan, Enum.Font.GothamMedium, Enum.TextXAlignment.Left)
+    subtitle.Position = UDim2.new(0, 56, 0, 30)
+    subtitle.Size = UDim2.new(0, 160, 0, 16)
+
+    -- Status online
+    local statusLabel = label(topBar, "●  ONLINE", 11, COLORS.green, Enum.Font.GothamMedium, Enum.TextXAlignment.Right)
+    statusLabel.AnchorPoint = Vector2.new(1, 0.5)
+    statusLabel.Position = UDim2.new(1, -50, 0.5, 0)
+    statusLabel.Size = UDim2.fromOffset(90, 22)
+
+    -- Botão fechar
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.AnchorPoint = Vector2.new(1, 0.5)
+    closeBtn.Position = UDim2.new(1, -14, 0.5, 0)
+    closeBtn.Size = UDim2.fromOffset(24, 24)
+    closeBtn.BackgroundColor3 = COLORS.panelHover
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = COLORS.muted
+    closeBtn.TextSize = 18
+    closeBtn.Font = Enum.Font.GothamMedium
+    closeBtn.AutoButtonColor = false
+    closeBtn.Parent = topBar
+    corner(closeBtn, 6)
+    closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+
+    -- ====== CONTEÚDO ======
+    local content = Instance.new("Frame")
+    content.Size = UDim2.new(1, -24, 1, -64)
+    content.Position = UDim2.new(0, 12, 0, 58)
+    content.BackgroundTransparency = 1
+    content.Parent = main
+
+    local contentLayout = Instance.new("UIListLayout")
+    contentLayout.Padding = UDim.new(0, 12)
+    contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    contentLayout.Parent = content
+
+    -- ====== SEÇÃO FARM CONTROLS ======
+    local farmSection = Instance.new("Frame")
+    farmSection.Size = UDim2.new(1, 0, 0, 0)
+    farmSection.BackgroundTransparency = 1
+    farmSection.Parent = content
+
+    local farmTitle = label(farmSection, "FARM CONTROLS", 15, COLORS.white, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    farmTitle.Size = UDim2.new(1, 0, 0, 25)
+
+    -- Função checkbox estilo W-Azure
+    local function createToggle(parent, text, var, y)
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(1, 0, 0, 30)
+        frame.Size = UDim2.new(1, 0, 0, 34)
         frame.Position = UDim2.new(0, 0, 0, y)
-        frame.BackgroundTransparency = 1
-        frame.Parent = container
+        frame.BackgroundColor3 = COLORS.panelLight
+        frame.Parent = parent
+        corner(frame, 6)
+        stroke(frame, COLORS.border, 1)
 
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0.7, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.Text = text
-        label.TextColor3 = Color3.fromRGB(220,220,230)
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.TextScaled = true
-        label.Font = Enum.Font.Gotham
-        label.Parent = frame
+        local lbl = label(frame, text, 13, COLORS.white, Enum.Font.GothamMedium, Enum.TextXAlignment.Left)
+        lbl.Position = UDim2.new(0, 14, 0, 0)
+        lbl.Size = UDim2.new(0.6, 0, 1, 0)
 
-        local check = Instance.new("TextButton")
-        check.Size = UDim2.new(0, 25, 0, 25)
-        check.Position = UDim2.new(0.9, 0, 0, 2)
-        check.BackgroundColor3 = getgenv().DRONX[var] and Color3.fromRGB(0,200,0) or Color3.fromRGB(100,100,100)
-        check.Text = getgenv().DRONX[var] and "✓" or ""
-        check.TextColor3 = Color3.fromRGB(255,255,255)
-        check.TextScaled = true
-        check.Font = Enum.Font.GothamBold
-        check.BorderSizePixel = 1
-        check.BorderColor3 = Color3.fromRGB(255,255,255)
-        check.Parent = frame
+        local toggleBtn = Instance.new("TextButton")
+        toggleBtn.AnchorPoint = Vector2.new(1, 0.5)
+        toggleBtn.Position = UDim2.new(1, -14, 0.5, 0)
+        toggleBtn.Size = UDim2.fromOffset(40, 20)
+        toggleBtn.BackgroundColor3 = getgenv().DRONX[var] and COLORS.blue or COLORS.background
+        toggleBtn.Text = ""
+        toggleBtn.AutoButtonColor = false
+        toggleBtn.Parent = frame
+        corner(toggleBtn, 10)
+        stroke(toggleBtn, COLORS.border, 1)
 
-        check.MouseButton1Click:Connect(function()
+        local knob = Instance.new("Frame")
+        knob.Size = UDim2.fromOffset(14, 14)
+        knob.Position = getgenv().DRONX[var] and UDim2.new(1, -18, 0.5, -7) or UDim2.new(0, 4, 0.5, -7)
+        knob.BackgroundColor3 = COLORS.white
+        knob.Parent = toggleBtn
+        corner(knob, 7)
+
+        toggleBtn.MouseButton1Click:Connect(function()
             local state = not getgenv().DRONX[var]
             getgenv().DRONX[var] = state
-            check.BackgroundColor3 = state and Color3.fromRGB(0,200,0) or Color3.fromRGB(100,100,100)
-            check.Text = state and "✓" or ""
+            toggleBtn.BackgroundColor3 = state and COLORS.blue or COLORS.background
+            knob.Position = state and UDim2.new(1, -18, 0.5, -7) or UDim2.new(0, 4, 0.5, -7)
         end)
-        return frame
     end
 
-    -- Título Farm
-    local farmTitle = Instance.new("TextLabel")
-    farmTitle.Size = UDim2.new(1, 0, 0, 25)
-    farmTitle.BackgroundTransparency = 1
-    farmTitle.Text = "⚔️ FARM"
-    farmTitle.TextColor3 = Color3.fromRGB(255, 215, 0)
-    farmTitle.TextSize = 18
-    farmTitle.Font = Enum.Font.GothamBold
-    farmTitle.TextXAlignment = Enum.TextXAlignment.Left
-    farmTitle.Parent = container
+    createToggle(farmSection, "Auto Farm", "AutoFarm", 28)
+    createToggle(farmSection, "Auto Coletar Itens", "AutoCollect", 66)
+    createToggle(farmSection, "Cura Automática", "AutoHeal", 104)
 
-    checkbox("Auto Farm", "AutoFarm", 30)
-    checkbox("Auto Coletar Itens", "AutoCollect", 65)
-    checkbox("Cura Automática", "AutoHeal", 100)
-
-    -- Botão Iniciar/Parar
+    -- Botão INICIAR/PARAR
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.6, 0, 0, 40)
-    btn.Position = UDim2.new(0.2, 0, 0, 145)
-    btn.BackgroundColor3 = getgenv().DRONX.Running and Color3.fromRGB(150,0,0) or Color3.fromRGB(0,150,0)
-    btn.Text = getgenv().DRONX.Running and "⏹ PARAR" or "▶ INICIAR"
-    btn.TextColor3 = Color3.fromRGB(255,255,255)
-    btn.TextScaled = true
+    btn.Size = UDim2.new(0.5, 0, 0, 38)
+    btn.Position = UDim2.new(0.25, 0, 0, 148)
+    btn.BackgroundColor3 = getgenv().DRONX.Running and COLORS.red or COLORS.green
+    btn.Text = getgenv().DRONX.Running and "PARAR" or "INICIAR"
+    btn.TextColor3 = COLORS.white
+    btn.TextSize = 16
     btn.Font = Enum.Font.GothamBold
-    btn.Parent = container
+    btn.AutoButtonColor = false
+    btn.Parent = farmSection
+    corner(btn, 8)
 
     btn.MouseButton1Click:Connect(function()
         local running = not getgenv().DRONX.Running
         getgenv().DRONX.Running = running
-        btn.Text = running and "⏹ PARAR" or "▶ INICIAR"
-        btn.BackgroundColor3 = running and Color3.fromRGB(150,0,0) or Color3.fromRGB(0,150,0)
+        btn.Text = running and "PARAR" or "INICIAR"
+        btn.BackgroundColor3 = running and COLORS.red or COLORS.green
     end)
+
+    farmSection.Size = UDim2.new(1, 0, 0, 195)
+
+    -- ====== SEÇÃO STATUS ======
+    local statusSection = Instance.new("Frame")
+    statusSection.Size = UDim2.new(1, 0, 0, 0)
+    statusSection.BackgroundTransparency = 1
+    statusSection.Parent = content
+
+    local statusTitle = label(statusSection, "STATUS", 13, COLORS.muted, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    statusTitle.Size = UDim2.new(1, 0, 0, 22)
+
+    -- Card de status
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 0, 150)
+    card.BackgroundColor3 = COLORS.panelLight
+    card.Parent = statusSection
+    corner(card, 8)
+    stroke(card, COLORS.border, 1)
+
+    local cardPad = Instance.new("UIPadding")
+    cardPad.PaddingLeft = UDim.new(0, 14)
+    cardPad.PaddingTop = UDim.new(0, 10)
+    cardPad.PaddingRight = UDim.new(0, 14)
+    cardPad.PaddingBottom = UDim.new(0, 10)
+    cardPad.Parent = card
+
+    local cardLayout = Instance.new("UIListLayout")
+    cardLayout.Padding = UDim.new(0, 4)
+    cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    cardLayout.Parent = card
+
+    label(card, "Menu", 12, COLORS.muted, Enum.Font.GothamMedium, Enum.TextXAlignment.Left)
+    label(card, "$1,323,522", 18, COLORS.gold, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    label(card, "Lv. 2631", 16, COLORS.white, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    label(card, "68,286,171 / 146,996,907", 13, COLORS.muted, Enum.Font.Gotham, Enum.TextXAlignment.Left)
+
+    local lifeLabel = label(card, "Vida  11770 / 11770", 14, COLORS.white, Enum.Font.Gotham, Enum.TextXAlignment.Left)
+    local energyLabel = label(card, "Energy  14095 / 14095", 14, COLORS.white, Enum.Font.Gotham, Enum.TextXAlignment.Left)
+
+    statusSection.Size = UDim2.new(1, 0, 0, 190)
+
+    -- ====== NÚCLEO DE ENERGIA ======
+    local coreSection = Instance.new("Frame")
+    coreSection.Size = UDim2.new(1, 0, 0, 45)
+    coreSection.BackgroundTransparency = 1
+    coreSection.Parent = content
+
+    local coreCard = Instance.new("Frame")
+    coreCard.Size = UDim2.new(1, 0, 0, 35)
+    coreCard.BackgroundColor3 = COLORS.panelLight
+    coreCard.Parent = coreSection
+    corner(coreCard, 8)
+    stroke(coreCard, COLORS.border, 1)
+
+    local coreLabel = label(coreCard, "Núcleo de Energia", 14, COLORS.cyan, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+    coreLabel.Size = UDim2.fromScale(1, 1)
 
     print("[DRONX] GUI carregada com sucesso!")
 end
