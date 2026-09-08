@@ -1,19 +1,16 @@
 -- ============================================================
--- DRONX – GUI com seta expandir/colapsar e abas
+-- DRONX – GUI SIMPLES E FUNCIONAL (COM VALORES REAIS)
 -- ============================================================
 
 print("[DRONX] Carregando...")
 
 -- ====== CONFIGURAÇÕES ======
 getgenv().DRONX = {
-    Running = false,
     AutoFarm = false,
+    AutoMaestria = false,
     AutoCollect = false,
     AutoHeal = false,
-    FarmMaestria = false,
     AutoBoss = false,
-    BossName = "",
-    AttackDistance = 40
 }
 
 -- ====== OBTÉM JOGADOR ======
@@ -32,7 +29,7 @@ local function getClosestNPC()
             local npcLevel = npc:FindFirstChild("Level") and npc.Level.Value or 0
             if npcLevel >= level - 5 and npcLevel <= level + 10 then
                 local dist = (rootPart.Position - npc.HumanoidRootPart.Position).Magnitude
-                if dist < minDist and dist <= getgenv().DRONX.AttackDistance then
+                if dist < minDist and dist <= 40 then
                     minDist = dist
                     closest = npc
                 end
@@ -72,382 +69,305 @@ end
 coroutine.wrap(function()
     while true do
         task.wait()
-        local drx = getgenv().DRONX
-        if drx.Running then
-            if drx.AutoFarm or drx.FarmMaestria then
-                local npc = getClosestNPC()
-                if npc then attackNPC(npc) end
-            end
-            if drx.AutoCollect then collectItems() end
-            if drx.AutoHeal then autoHeal() end
+        if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
+            local npc = getClosestNPC()
+            if npc then attackNPC(npc) end
         end
+        if getgenv().DRONX.AutoCollect then collectItems() end
+        if getgenv().DRONX.AutoHeal then autoHeal() end
     end
 end)()
 
 -- ====== CRIAÇÃO DA GUI ======
 local function criarGUI()
     local guiParent = game:GetService("CoreGui") or player:WaitForChild("PlayerGui")
-    if not guiParent then return warn("[DRONX] Sem pai") end
+    if not guiParent then return end
 
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "DRONX_GUI"
     screenGui.ResetOnSpawn = false
     screenGui.Parent = guiParent
 
-    local COLORS = {
-        background = Color3.fromRGB(10, 14, 24),
-        panel = Color3.fromRGB(16, 22, 36),
-        panelLight = Color3.fromRGB(22, 30, 48),
-        panelHover = Color3.fromRGB(29, 39, 61),
+    -- Cores
+    local colors = {
+        bg = Color3.fromRGB(16, 22, 36),
+        panel = Color3.fromRGB(22, 30, 48),
         blue = Color3.fromRGB(61, 151, 255),
-        blueDark = Color3.fromRGB(31, 92, 173),
-        cyan = Color3.fromRGB(72, 215, 255),
         white = Color3.fromRGB(239, 244, 255),
         muted = Color3.fromRGB(144, 158, 185),
-        border = Color3.fromRGB(44, 59, 88),
+        gold = Color3.fromRGB(255, 215, 0),
         green = Color3.fromRGB(76, 211, 141),
         red = Color3.fromRGB(255, 70, 70),
-        gold = Color3.fromRGB(255, 215, 0),
     }
 
-    local function corner(parent, radius)
+    local function corner(p, r)
         local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, radius or 8)
-        c.Parent = parent
+        c.CornerRadius = UDim.new(0, r or 8)
+        c.Parent = p
     end
 
-    local function stroke(parent, color, thickness)
-        local s = Instance.new("UIStroke")
-        s.Color = color or COLORS.border
-        s.Thickness = thickness or 1
-        s.Parent = parent
-    end
-
-    local function label(parent, text, size, color, font, align)
+    local function label(p, text, size, color, font, align)
         local l = Instance.new("TextLabel")
         l.BackgroundTransparency = 1
         l.Text = text
-        l.TextColor3 = color or COLORS.white
+        l.TextColor3 = color or colors.white
         l.TextSize = size or 14
         l.Font = font or Enum.Font.Gotham
         l.TextXAlignment = align or Enum.TextXAlignment.Left
         l.TextYAlignment = Enum.TextYAlignment.Center
-        l.Parent = parent
+        l.Parent = p
         return l
     end
 
-    -- ====== JANELA PRINCIPAL (MAIOR) ======
+    -- Janela principal
     local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 480, 0, 520)
-    main.Position = UDim2.new(0.5, -240, 0.5, -260)
-    main.BackgroundColor3 = COLORS.panel
+    main.Size = UDim2.new(0, 400, 0, 460)
+    main.Position = UDim2.new(0.5, -200, 0.5, -230)
+    main.BackgroundColor3 = colors.bg
     main.BorderSizePixel = 0
-    main.ClipsDescendants = true
     main.Active = true
     main.Draggable = true
     main.Parent = screenGui
     corner(main, 12)
-    stroke(main, COLORS.border, 1)
 
-    -- ====== TOP BAR ======
-    local topBar = Instance.new("Frame")
-    topBar.Size = UDim2.new(1, 0, 0, 50)
-    topBar.BackgroundColor3 = COLORS.panelLight
-    topBar.BorderSizePixel = 0
-    topBar.Parent = main
+    -- Top bar
+    local top = Instance.new("Frame")
+    top.Size = UDim2.new(1, 0, 0, 44)
+    top.BackgroundColor3 = colors.panel
+    top.Parent = main
 
-    local accent = Instance.new("Frame")
-    accent.Size = UDim2.new(0, 4, 1, 0)
-    accent.BackgroundColor3 = COLORS.blue
-    accent.BorderSizePixel = 0
-    accent.Parent = topBar
+    local title = label(top, "DRONX", 18, colors.white, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    title.Position = UDim2.new(0, 14, 0, 4)
+    title.Size = UDim2.new(0, 140, 0, 22)
 
-    local logo = Instance.new("Frame")
-    logo.Size = UDim2.new(0, 32, 0, 32)
-    logo.Position = UDim2.new(0, 14, 0.5, -16)
-    logo.BackgroundColor3 = COLORS.blueDark
-    logo.Parent = topBar
-    corner(logo, 8)
-
-    local logoText = label(logo, "D", 18, COLORS.white, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-    logoText.Size = UDim2.fromScale(1, 1)
-
-    local title = label(topBar, "DRONX", 18, COLORS.white, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
-    title.Position = UDim2.new(0, 56, 0, 8)
-    title.Size = UDim2.new(0, 160, 0, 22)
-
-    local subtitle = label(topBar, "FARM CONTROLS", 10, COLORS.cyan, Enum.Font.GothamMedium, Enum.TextXAlignment.Left)
-    subtitle.Position = UDim2.new(0, 56, 0, 30)
-    subtitle.Size = UDim2.new(0, 160, 0, 16)
-
-    -- Status online
-    local statusLabel = label(topBar, "●  ONLINE", 11, COLORS.green, Enum.Font.GothamMedium, Enum.TextXAlignment.Right)
-    statusLabel.AnchorPoint = Vector2.new(1, 0.5)
-    statusLabel.Position = UDim2.new(1, -50, 0.5, 0)
-    statusLabel.Size = UDim2.fromOffset(90, 22)
+    local sub = label(top, "FARM CONTROLS", 10, colors.muted, Enum.Font.Gotham, Enum.TextXAlignment.Left)
+    sub.Position = UDim2.new(0, 14, 0, 24)
+    sub.Size = UDim2.new(0, 140, 0, 18)
 
     -- Botão fechar
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.AnchorPoint = Vector2.new(1, 0.5)
-    closeBtn.Position = UDim2.new(1, -14, 0.5, 0)
-    closeBtn.Size = UDim2.fromOffset(24, 24)
-    closeBtn.BackgroundColor3 = COLORS.panelHover
-    closeBtn.Text = "×"
-    closeBtn.TextColor3 = COLORS.muted
-    closeBtn.TextSize = 18
-    closeBtn.Font = Enum.Font.GothamMedium
-    closeBtn.AutoButtonColor = false
-    closeBtn.Parent = topBar
-    corner(closeBtn, 6)
-    closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+    local close = Instance.new("TextButton")
+    close.AnchorPoint = Vector2.new(1, 0.5)
+    close.Position = UDim2.new(1, -12, 0.5, 0)
+    close.Size = UDim2.fromOffset(24, 24)
+    close.BackgroundColor3 = colors.panel
+    close.Text = "×"
+    close.TextColor3 = colors.muted
+    close.TextSize = 18
+    close.Font = Enum.Font.GothamBold
+    close.AutoButtonColor = false
+    close.Parent = top
+    corner(close, 6)
+    close.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
-    -- ====== BOTÃO EXPANDIR (SETA) ======
-    local expandida = false
-    local expandBtn = Instance.new("TextButton")
-    expandBtn.AnchorPoint = Vector2.new(1, 0.5)
-    expandBtn.Position = UDim2.new(1, -42, 0.5, 0)
-    expandBtn.Size = UDim2.fromOffset(24, 24)
-    expandBtn.BackgroundColor3 = COLORS.panelHover
-    expandBtn.Text = "▼"
-    expandBtn.TextColor3 = COLORS.white
-    expandBtn.TextSize = 16
-    expandBtn.Font = Enum.Font.GothamBold
-    expandBtn.AutoButtonColor = false
-    expandBtn.Parent = topBar
-    corner(expandBtn, 6)
+    -- Container (ScrollingFrame)
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size = UDim2.new(1, -16, 1, -56)
+    scroll.Position = UDim2.new(0, 8, 0, 50)
+    scroll.BackgroundTransparency = 1
+    scroll.ScrollBarThickness = 3
+    scroll.ScrollBarImageColor3 = colors.blue
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.Parent = main
 
-    -- ====== CONTEÚDO (SCROLLING FRAME) ======
-    local content = Instance.new("ScrollingFrame")
-    content.Size = UDim2.new(1, -24, 1, -64)
-    content.Position = UDim2.new(0, 12, 0, 58)
-    content.BackgroundTransparency = 1
-    content.ScrollBarThickness = 4
-    content.ScrollBarImageColor3 = COLORS.blue
-    content.CanvasSize = UDim2.new(0, 0, 0, 0)
-    content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    content.Parent = main
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 10)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = scroll
 
-    local contentLayout = Instance.new("UIListLayout")
-    contentLayout.Padding = UDim.new(0, 10)
-    contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    contentLayout.Parent = content
+    -- ====== FUNÇÃO CHECKBOX ======
+    local function toggle(parent, text, var)
+        local f = Instance.new("Frame")
+        f.Size = UDim2.new(1, 0, 0, 32)
+        f.BackgroundColor3 = colors.panel
+        f.Parent = parent
+        corner(f, 6)
 
-    -- ====== FUNÇÃO CHECKBOX TOGGLE ======
-    local function createToggle(parent, text, var)
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(1, 0, 0, 34)
-        frame.BackgroundColor3 = COLORS.panelLight
-        frame.Parent = parent
-        corner(frame, 6)
-        stroke(frame, COLORS.border, 1)
-
-        local lbl = label(frame, text, 13, COLORS.white, Enum.Font.GothamMedium, Enum.TextXAlignment.Left)
-        lbl.Position = UDim2.new(0, 14, 0, 0)
+        local lbl = label(f, text, 13, colors.white, Enum.Font.Gotham, Enum.TextXAlignment.Left)
+        lbl.Position = UDim2.new(0, 12, 0, 0)
         lbl.Size = UDim2.new(0.6, 0, 1, 0)
 
-        local toggleBtn = Instance.new("TextButton")
-        toggleBtn.AnchorPoint = Vector2.new(1, 0.5)
-        toggleBtn.Position = UDim2.new(1, -14, 0.5, 0)
-        toggleBtn.Size = UDim2.fromOffset(40, 20)
-        toggleBtn.BackgroundColor3 = getgenv().DRONX[var] and COLORS.blue or COLORS.background
-        toggleBtn.Text = ""
-        toggleBtn.AutoButtonColor = false
-        toggleBtn.Parent = frame
-        corner(toggleBtn, 10)
-        stroke(toggleBtn, COLORS.border, 1)
+        local btn = Instance.new("TextButton")
+        btn.AnchorPoint = Vector2.new(1, 0.5)
+        btn.Position = UDim2.new(1, -12, 0.5, 0)
+        btn.Size = UDim2.fromOffset(38, 18)
+        btn.BackgroundColor3 = getgenv().DRONX[var] and colors.green or colors.muted
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.Parent = f
+        corner(btn, 9)
 
         local knob = Instance.new("Frame")
-        knob.Size = UDim2.fromOffset(14, 14)
-        knob.Position = getgenv().DRONX[var] and UDim2.new(1, -18, 0.5, -7) or UDim2.new(0, 4, 0.5, -7)
-        knob.BackgroundColor3 = COLORS.white
-        knob.Parent = toggleBtn
-        corner(knob, 7)
+        knob.Size = UDim2.fromOffset(12, 12)
+        knob.Position = getgenv().DRONX[var] and UDim2.new(1, -16, 0.5, -6) or UDim2.new(0, 4, 0.5, -6)
+        knob.BackgroundColor3 = colors.white
+        knob.Parent = btn
+        corner(knob, 6)
 
-        toggleBtn.MouseButton1Click:Connect(function()
+        btn.MouseButton1Click:Connect(function()
             local state = not getgenv().DRONX[var]
             getgenv().DRONX[var] = state
-            toggleBtn.BackgroundColor3 = state and COLORS.blue or COLORS.background
-            knob.Position = state and UDim2.new(1, -18, 0.5, -7) or UDim2.new(0, 4, 0.5, -7)
+            btn.BackgroundColor3 = state and colors.green or colors.muted
+            knob.Position = state and UDim2.new(1, -16, 0.5, -6) or UDim2.new(0, 4, 0.5, -6)
         end)
-        return frame
     end
 
-    -- ====== FUNÇÃO CRIAR CATEGORIA ======
-    local function criarCategoria(parent, titulo, icone)
-        local secao = Instance.new("Frame")
-        secao.Size = UDim2.new(1, 0, 0, 0)
-        secao.BackgroundTransparency = 1
-        secao.Parent = parent
+    -- ====== CATEGORIAS ======
+    local function categoria(title, icon)
+        local sec = Instance.new("Frame")
+        sec.Size = UDim2.new(1, 0, 0, 0)
+        sec.BackgroundTransparency = 1
+        sec.Parent = scroll
 
         local header = Instance.new("Frame")
-        header.Size = UDim2.new(1, 0, 0, 32)
-        header.BackgroundColor3 = COLORS.panelLight
-        header.Parent = secao
+        header.Size = UDim2.new(1, 0, 0, 30)
+        header.BackgroundColor3 = colors.panel
+        header.Parent = sec
         corner(header, 6)
-        stroke(header, COLORS.border, 1)
 
-        local headerLabel = label(header, icone .. " " .. titulo, 13, COLORS.white, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
-        headerLabel.Position = UDim2.new(0, 14, 0, 0)
-        headerLabel.Size = UDim2.new(0.8, 0, 1, 0)
+        local htext = label(header, "▼ " .. icon .. " " .. title, 13, colors.white, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+        htext.Position = UDim2.new(0, 12, 0, 0)
+        htext.Size = UDim2.new(0.8, 0, 1, 0)
 
-        local toggleHeader = Instance.new("TextButton")
-        toggleHeader.Size = UDim2.new(1, 0, 1, 0)
-        toggleHeader.BackgroundTransparency = 1
-        toggleHeader.Parent = header
+        local body = Instance.new("Frame")
+        body.Size = UDim2.new(1, 0, 0, 0)
+        body.BackgroundTransparency = 1
+        body.Parent = sec
 
-        local corpo = Instance.new("Frame")
-        corpo.Size = UDim2.new(1, 0, 0, 0)
-        corpo.BackgroundTransparency = 1
-        corpo.Parent = secao
+        local bodyLayout = Instance.new("UIListLayout")
+        bodyLayout.Padding = UDim.new(0, 4)
+        bodyLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        bodyLayout.Parent = body
 
-        local corpoLayout = Instance.new("UIListLayout")
-        corpoLayout.Padding = UDim.new(0, 6)
-        corpoLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        corpoLayout.Parent = corpo
-
-        local expandido = false
-
-        toggleHeader.MouseButton1Click:Connect(function()
+        local expandido = true
+        header.MouseButton1Click:Connect(function()
             expandido = not expandido
-            corpo.Visible = expandido
-            headerLabel.Text = (expandido and "▼ " or "▶ ") .. icone .. " " .. titulo
+            body.Visible = expandido
+            htext.Text = (expandido and "▼ " or "▶ ") .. icon .. " " .. title
         end)
 
-        -- Começa expandido
-        expandido = true
-        corpo.Visible = true
-        headerLabel.Text = "▼ " .. icone .. " " .. titulo
-
-        return secao, corpo
+        return sec, body
     end
 
-    -- ====== CATEGORIA: FARM ======
-    local farmSec, farmCorpo = criarCategoria(content, "Farm", "⚔️")
-    createToggle(farmCorpo, "Auto Farm", "AutoFarm")
-    createToggle(farmCorpo, "Farm Maestria", "FarmMaestria")
-    createToggle(farmCorpo, "Auto Coletar Itens", "AutoCollect")
-    createToggle(farmCorpo, "Cura Automática", "AutoHeal")
+    -- FARM
+    local farmSec, farmBody = categoria("Farm", "⚔️")
+    toggle(farmBody, "Auto Farm", "AutoFarm")
+    toggle(farmBody, "Farm Maestria", "AutoMaestria")
+    toggle(farmBody, "Auto Coletar", "AutoCollect")
+    toggle(farmBody, "Cura Automática", "AutoHeal")
 
-    -- ====== CATEGORIA: BOSS ======
-    local bossSec, bossCorpo = criarCategoria(content, "Boss", "👹")
+    -- BOSS
+    local bossSec, bossBody = categoria("Boss", "👹")
     local bossInput = Instance.new("TextBox")
-    bossInput.Size = UDim2.new(1, 0, 0, 34)
-    bossInput.Position = UDim2.new(0, 0, 0, 0)
-    bossInput.BackgroundColor3 = COLORS.panelLight
-    bossInput.TextColor3 = COLORS.white
-    bossInput.TextSize = 14
+    bossInput.Size = UDim2.new(1, 0, 0, 32)
+    bossInput.BackgroundColor3 = colors.panel
+    bossInput.TextColor3 = colors.white
+    bossInput.TextSize = 13
     bossInput.Font = Enum.Font.Gotham
-    bossInput.PlaceholderText = "Nome do Boss (ex: Don Swan)"
-    bossInput.Parent = bossCorpo
+    bossInput.PlaceholderText = "Nome do Boss"
+    bossInput.Parent = bossBody
     corner(bossInput, 6)
-    stroke(bossInput, COLORS.border, 1)
+    toggle(bossBody, "Auto Boss", "AutoBoss")
 
-    createToggle(bossCorpo, "Auto Boss", "AutoBoss")
-
-    -- ====== CATEGORIA: TELEPORT ======
-    local teleSec, teleCorpo = criarCategoria(content, "Teleport", "📍")
-
+    -- TELEPORT
+    local teleSec, teleBody = categoria("Teleport", "📍")
     local coordInput = Instance.new("TextBox")
-    coordInput.Size = UDim2.new(1, 0, 0, 34)
-    coordInput.BackgroundColor3 = COLORS.panelLight
-    coordInput.TextColor3 = COLORS.white
-    coordInput.TextSize = 14
+    coordInput.Size = UDim2.new(1, 0, 0, 32)
+    coordInput.BackgroundColor3 = colors.panel
+    coordInput.TextColor3 = colors.white
+    coordInput.TextSize = 13
     coordInput.Font = Enum.Font.Gotham
-    coordInput.PlaceholderText = "X, Y, Z (ex: 100, 50, 200)"
-    coordInput.Parent = teleCorpo
+    coordInput.PlaceholderText = "X, Y, Z"
+    coordInput.Parent = teleBody
     corner(coordInput, 6)
-    stroke(coordInput, COLORS.border, 1)
 
     local teleBtn = Instance.new("TextButton")
-    teleBtn.Size = UDim2.new(0.5, 0, 0, 34)
+    teleBtn.Size = UDim2.new(0.5, 0, 0, 32)
     teleBtn.Position = UDim2.new(0.25, 0, 0, 0)
-    teleBtn.BackgroundColor3 = COLORS.blue
-    teleBtn.Text = "TELEPORTAR"
-    teleBtn.TextColor3 = COLORS.white
+    teleBtn.BackgroundColor3 = colors.blue
+    teleBtn.Text = "IR"
+    teleBtn.TextColor3 = colors.white
     teleBtn.TextSize = 14
     teleBtn.Font = Enum.Font.GothamBold
     teleBtn.AutoButtonColor = false
-    teleBtn.Parent = teleCorpo
+    teleBtn.Parent = teleBody
     corner(teleBtn, 6)
-
     teleBtn.MouseButton1Click:Connect(function()
-        local coords = coordInput.Text
-        local x, y, z = coords:match("(%d+),%s*(%d+),%s*(%d+)")
+        local x, y, z = coordInput.Text:match("(%d+),%s*(%d+),%s*(%d+)")
         if x and y and z then
             rootPart.CFrame = CFrame.new(tonumber(x), tonumber(y), tonumber(z))
         end
     end)
 
-    -- ====== CATEGORIA: SOBRE ======
-    local sobreSec, sobreCorpo = criarCategoria(content, "Sobre", "ℹ️")
-
-    local sobreText = Instance.new("TextLabel")
-    sobreText.Size = UDim2.new(1, 0, 0, 80)
-    sobreText.BackgroundTransparency = 1
-    sobreText.Text = "DRONX v2.0\nDesenvolvido para Blox Fruits\n\nFunções: Auto Farm, Maestria, Coleta, Cura, Boss, Teleport\n\n© 2025 DRONX Team"
-    sobreText.TextColor3 = COLORS.muted
-    sobreText.TextSize = 13
-    sobreText.Font = Enum.Font.Gotham
-    sobreText.TextXAlignment = Enum.TextXAlignment.Center
+    -- SOBRE
+    local sobreSec, sobreBody = categoria("Sobre", "ℹ️")
+    local sobreText = label(sobreBody, "DRONX v2.0\nAuto Farm, Maestria, Coleta, Cura, Boss, Teleport\n© 2025 DRONX Team", 12, colors.muted, Enum.Font.Gotham, Enum.TextXAlignment.Center)
+    sobreText.Size = UDim2.new(1, 0, 0, 70)
     sobreText.TextYAlignment = Enum.TextYAlignment.Top
-    sobreText.Parent = sobreCorpo
 
-    -- ====== STATUS RÁPIDO (SEM BOTÃO INICIAR) ======
+    -- ====== STATUS (COM VALORES REAIS) ======
     local statusSec = Instance.new("Frame")
     statusSec.Size = UDim2.new(1, 0, 0, 0)
     statusSec.BackgroundTransparency = 1
-    statusSec.Parent = content
+    statusSec.Parent = scroll
 
-    local statusTitle = label(statusSec, "STATUS", 12, COLORS.muted, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
-    statusTitle.Size = UDim2.new(1, 0, 0, 22)
+    local stitle = label(statusSec, "STATUS", 12, colors.muted, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    stitle.Size = UDim2.new(1, 0, 0, 22)
 
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, 0, 0, 140)
-    card.BackgroundColor3 = COLORS.panelLight
+    card.Size = UDim2.new(1, 0, 0, 130)
+    card.BackgroundColor3 = colors.panel
     card.Parent = statusSec
     corner(card, 8)
-    stroke(card, COLORS.border, 1)
 
-    local cardPad = Instance.new("UIPadding")
-    cardPad.PaddingLeft = UDim.new(0, 14)
-    cardPad.PaddingTop = UDim.new(0, 10)
-    cardPad.PaddingRight = UDim.new(0, 14)
-    cardPad.PaddingBottom = UDim.new(0, 10)
-    cardPad.Parent = card
+    local pad = Instance.new("UIPadding")
+    pad.PaddingLeft = UDim.new(0, 12)
+    pad.PaddingTop = UDim.new(0, 8)
+    pad.PaddingRight = UDim.new(0, 12)
+    pad.PaddingBottom = UDim.new(0, 8)
+    pad.Parent = card
 
-    local cardLayout = Instance.new("UIListLayout")
-    cardLayout.Padding = UDim.new(0, 4)
-    cardLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    cardLayout.Parent = card
+    local statusLayout = Instance.new("UIListLayout")
+    statusLayout.Padding = UDim.new(0, 2)
+    statusLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    statusLayout.Parent = card
 
-    label(card, "Menu", 12, COLORS.muted, Enum.Font.GothamMedium, Enum.TextXAlignment.Left)
-    label(card, "$1,323,522", 18, COLORS.gold, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
-    label(card, "Lv. 2631", 16, COLORS.white, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
-    label(card, "68,286,171 / 146,996,907", 13, COLORS.muted, Enum.Font.Gotham, Enum.TextXAlignment.Left)
-    label(card, "Vida  11770 / 11770", 14, COLORS.white, Enum.Font.Gotham, Enum.TextXAlignment.Left)
-    label(card, "Energy  14095 / 14095", 14, COLORS.white, Enum.Font.Gotham, Enum.TextXAlignment.Left)
+    -- Labels dinâmicos (atualizados a cada segundo)
+    local menuLbl = label(card, "Menu", 11, colors.muted, Enum.Font.GothamMedium, Enum.TextXAlignment.Left)
+    local moneyLbl = label(card, "$0", 18, colors.gold, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    local lvlLbl = label(card, "Lv. 0", 16, colors.white, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    local expLbl = label(card, "0 / 0", 12, colors.muted, Enum.Font.Gotham, Enum.TextXAlignment.Left)
+    local hpLbl = label(card, "Vida 0 / 0", 14, colors.white, Enum.Font.Gotham, Enum.TextXAlignment.Left)
+    local enLbl = label(card, "Energy 0 / 0", 14, colors.white, Enum.Font.Gotham, Enum.TextXAlignment.Left)
 
-    statusSec.Size = UDim2.new(1, 0, 0, 180)
+    -- Atualiza os valores a cada 1 segundo
+    coroutine.wrap(function()
+        while screenGui.Parent do
+            task.wait(1)
+            local data = player.Data
+            if data then
+                moneyLbl.Text = "$" .. string.format("%.0f", data.Beli.Value)
+                lvlLbl.Text = "Lv. " .. data.Level.Value
+                expLbl.Text = string.format("%.0f", data.Experience.Value) .. " / " .. string.format("%.0f", data.Level.Value * 1000)
+            end
+            if humanoid then
+                hpLbl.Text = "Vida " .. math.floor(humanoid.Health) .. " / " .. math.floor(humanoid.MaxHealth)
+                enLbl.Text = "Energy " .. math.floor(humanoid.Energy) .. " / " .. math.floor(humanoid.MaxEnergy)
+            end
+        end
+    end)()
 
-    -- ====== EXPANDIR/COLAPSAR TUDO ======
-    expandBtn.MouseButton1Click:Connect(function()
-        expandida = not expandida
-        expandBtn.Text = expandida and "▲" or "▼"
-        -- Esconde/mostra todo o conteúdo
-        content.Visible = expandida
-        main.Size = expandida and UDim2.new(0, 480, 0, 520) or UDim2.new(0, 480, 0, 50)
-    end)
+    statusSec.Size = UDim2.new(1, 0, 0, 170)
 
-    -- Atualiza o CanvasSize do ScrollingFrame
+    -- Ajusta canvas
     local function updateCanvas()
-        content.CanvasSize = UDim2.new(0, 0, 0, contentLayout.AbsoluteContentSize.Y + 20)
+        scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
     end
-    contentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
     task.wait(0.5)
     updateCanvas()
 
-    print("[DRONX] GUI carregada com sucesso!")
+    print("[DRONX] GUI carregada com valores dinâmicos!")
 end
 
 pcall(criarGUI)
-print("[DRONX] Pronto! Clique na seta ▼ para expandir as categorias.")
