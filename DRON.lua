@@ -253,54 +253,64 @@ strokeBtn.Color = Color3.fromRGB(255, 215, 0)
 strokeBtn.Thickness = 2
 strokeBtn.Parent = toggleBtn
 
--- Função que alterna a GUI
+-- Variável de estado
 local guiAberta = true
 
-local function encontrarScreenGui()
-    -- Tenta achar a ScreenGui do Fluent no CoreGui
-    for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
-        if gui:IsA("ScreenGui") then
-            -- O Fluent geralmente cria ScreenGui com esse estilo
-            if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") or gui.Name:lower():find("main") then
-                return gui
+-- Função que acha a GUI do Fluent (SEM pegar a do botão)
+local function encontrarFluent()
+    local function procurar(pai)
+        for _, gui in pairs(pai:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
+                -- Procura por filhos típicos do Fluent
+                if gui.Name:lower():find("fluent") 
+                or gui.Name:lower():find("dawid") 
+                or gui:FindFirstChild("Main") 
+                or gui:FindFirstChild("Fluent") then
+                    return gui
+                end
             end
         end
+        return nil
     end
-    -- Tenta no PlayerGui também
-    for _, gui in pairs(game.Players.LocalPlayer.PlayerGui:GetChildren()) do
-        if gui:IsA("ScreenGui") then
-            if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") then
-                return gui
-            end
-        end
-    end
+    
+    local fluenteCore = procurar(game:GetService("CoreGui"))
+    if fluenteCore then return fluenteCore end
+    
+    local fluentePlayer = procurar(game.Players.LocalPlayer.PlayerGui)
+    if fluentePlayer then return fluentePlayer end
+    
     return nil
 end
 
+-- Guarda referência à GUI do Fluent
+local fluentGui = encontrarFluent()
+
+-- Se não achou de primeira, espera um pouco
+if not fluentGui then
+    task.wait(2)
+    fluentGui = encontrarFluent()
+end
+
+-- Função que alterna (SEM afetar o botão)
 toggleBtn.MouseButton1Click:Connect(function()
     guiAberta = not guiAberta
     
-    -- Tenta usar a API nativa do Fluent primeiro
+    -- Tentativa 1: API nativa do Fluent
     local sucesso = pcall(function()
         if guiAberta then
-            Window:Show()  -- método nativo (se existir)
+            Window:Show()
         else
-            Window:Hide()  -- método nativo (se existir)
+            Window:Hide()
         end
     end)
     
-    -- Se não deu certo, procura a ScreenGui e alterna Enabled
+    -- Tentativa 2: Procurar e alternar a ScreenGui específica
     if not sucesso then
-        local fluentGui = encontrarScreenGui()
+        if not fluentGui or not fluentGui.Parent then
+            fluentGui = encontrarFluent()
+        end
         if fluentGui then
             fluentGui.Enabled = guiAberta
-        else
-            -- Última tentativa: procura em TODOS os filhos
-            for _, gui in pairs(game:GetService("CoreGui"):GetDescendants()) do
-                if gui:IsA("ScreenGui") and gui.Parent ~= screenGuiBtn then
-                    gui.Enabled = guiAberta
-                end
-            end
         end
     end
     
@@ -308,7 +318,7 @@ toggleBtn.MouseButton1Click:Connect(function()
     toggleBtn.Text = guiAberta and "◀" or "▶"
     toggleBtn.BackgroundColor3 = guiAberta and Color3.fromRGB(25, 25, 35) or Color3.fromRGB(50, 0, 0)
     
-    print("[DRONX] GUI " .. (guiAberta and "aberta" or "fechada"))
+    print("[DRONX] GUI " .. (guiAberta and "ABERTA" or "FECHADA"))
 end)
 
 print("[DRONX] Botão flutuante criado!")
