@@ -16,10 +16,10 @@ local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
 -- ====== FUNÇÕES ======
+-- ====== FUNÇÕES ======
 local function getClosestNPC()
     local closest = nil
     local minDist = math.huge
-    local level = player.Data.Level.Value
 
     local enemiesFolder = workspace:FindFirstChild("Enemies")
     if not enemiesFolder then return nil end
@@ -30,13 +30,10 @@ local function getClosestNPC()
         and npc.Humanoid.Health > 0 
         and npc:FindFirstChild("HumanoidRootPart") then
 
-            local npcLevel = npc:FindFirstChild("Level") and npc.Level.Value or 0
-            if npcLevel >= level - 5 and npcLevel <= level + 10 then
-                local dist = (rootPart.Position - npc.HumanoidRootPart.Position).Magnitude
-                if dist < minDist and dist <= 40 then
-                    minDist = dist
-                    closest = npc
-                end
+            local dist = (rootPart.Position - npc.HumanoidRootPart.Position).Magnitude
+            if dist < minDist and dist <= 50 then
+                minDist = dist
+                closest = npc
             end
         end
     end
@@ -50,9 +47,10 @@ local function attackNPC(npc)
 
     local targetPos = npc.HumanoidRootPart.Position
     rootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 0, 5), targetPos)
-    task.wait(0.1)
+    task.wait(0.15)
+
     game:GetService("VirtualInputManager"):SendKeyEvent(true, "Q", false, game)
-    task.wait(0.1)
+    task.wait(0.15)
     game:GetService("VirtualInputManager"):SendKeyEvent(false, "Q", false, game)
 end
 
