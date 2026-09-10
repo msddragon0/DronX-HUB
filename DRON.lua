@@ -57,54 +57,106 @@ if not sucesso or not AC then
     warn("[DRONX] Hook falhou, usando fallback.")
 end
 
-local function atacarRapido()
-    pcall(function()
-        if AC and AC.activeController then
-            local c = AC.activeController
-            c.attacking = false
-            c.timeToNextAttack = 0
-            c.timeToNextBlock = 0
-            c.hitboxMagnitude = 60
-            
-            local bladeHits = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
-                player.Character,
-                {player.Character.HumanoidRootPart},
-                60
-            )
-            local targets = {}
-            local hash = {}
-            for _, v in pairs(bladeHits) do
-                if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
-                    table.insert(targets, v.Parent.HumanoidRootPart)
-                    hash[v.Parent] = true
-                end
-            end
-            
-            if #targets > 0 then
-                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", targets, 1, "")
-                pcall(function()
-                    for _, anim in pairs(c.animator.anims.basic) do
-                        anim:Play()
-                    end
-                end)
-            end
-        else
-            game:GetService("VirtualUser"):CaptureController()
-            game:GetService("VirtualUser"):Button1Down(Vector2.new(960, 540))
-        end
-    end)
+-- ====== ATAQUE (baseado no Byte Hub) ======
+local plr = game.Players.LocalPlayer
+local CbFw = debug.getupvalues(require(plr.PlayerScripts.CombatFramework))
+local CbFw2 = CbFw[2]
+
+local function GetCurrentBlade()
+    local p13 = CbFw2.activeController
+    local ret = p13.blades[1]
+    if not ret then return end
+    while ret.Parent ~= game.Players.LocalPlayer.Character do ret = ret.Parent end
+    return ret
 end
 
+local function atacarRapido()
+    local funcionou = pcall(function()
+        if not CbFw2 or not CbFw2.activeController then error("sem hook") end
+        local AC = CbFw2.activeController
+        local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
+            player.Character,
+            {player.Character.HumanoidRootPart},
+            60
+        )
+        local cac, hash = {}, {}
+        for k, v in pairs(bladehit) do
+            if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
+                table.insert(cac, v.Parent.HumanoidRootPart)
+                hash[v.Parent] = true
+            end
+        end
+        bladehit = cac
+        if #bladehit > 0 then
+            AC.attacking = false
+            AC.timeToNextAttack = 0
+            local u8 = debug.getupvalue(AC.attack, 5)
+            local u9 = debug.getupvalue(AC.attack, 6)
+            local u7 = debug.getupvalue(AC.attack, 4)
+            local u10 = debug.getupvalue(AC.attack, 7)
+            local u12 = (u8 * 798405 + u7 * 727595) % u9
+            local u13 = u7 * 798405
+            u12 = (u12 * u9 + u13) % 1099511627776
+            u8 = math.floor(u12 / u9)
+            u7 = u12 - u8 * u9
+            u10 = u10 + 1
+            debug.setupvalue(AC.attack, 5, u8)
+            debug.setupvalue(AC.attack, 6, u9)
+            debug.setupvalue(AC.attack, 4, u7)
+            debug.setupvalue(AC.attack, 7, u10)
+            pcall(function()
+                for k, v in pairs(AC.animator.anims.basic) do v:Play() end
+            end)
+            if player.Character:FindFirstChildOfClass("Tool") and AC.blades and AC.blades[1] then
+                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange", tostring(GetCurrentBlade()))
+                game.ReplicatedStorage.Remotes.Validator:FireServer(math.floor(u12 / 1099511627776 * 16777215), u10)
+                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, 1, "")
+            end
+        end
+    end)
+    
+    -- Fallback: se o hook falhar, clica
+    if not funcionou then
+        pcall(function()
+            game:GetService("VirtualUser"):CaptureController()
+            game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+            game:GetService("VirtualUser"):Button1Up(Vector2.new(1280, 672))
+        end)
+    end
+end
+            
 -- ====== EQUIPAR ARMA ======
 local function equiparArma()
     pcall(function()
+        local tipo = getgenv().DRONX.TipoArma or "Sword"
+        
+        -- 🔥 Verifica se o jogador tem PONTOS DE STAT naquele tipo
+        local stats = player.Data:FindFirstChild("Stats")
+        local temStats = true
+        if stats then
+            local pontos = {
+                ["Sword"] = stats:FindFirstChild("Sword") and stats.Sword.Value or 0,
+                ["Melee"] = stats:FindFirstChild("Melee") and stats.Melee.Value or 0,
+                ["Blox Fruit"] = stats:FindFirstChild("Devil Fruit") and stats["Devil Fruit"].Value or 0,
+                ["Gun"] = stats:FindFirstChild("Gun") and stats.Gun.Value or 0,
+            }
+            if pontos[tipo] and pontos[tipo] <= 0 then
+                temStats = false
+                warn("[DRONX] Sem stats em " .. tipo .. "! Usando Melee (soco).")
+            end
+        end
+        
+        -- Se não tem stats, usa soco (Melee)
+        if not temStats then tipo = "Melee" end
+        
+        -- Se já está equipado, não troca
         local armaAtual = player.Character:FindFirstChildOfClass("Tool")
-        if armaAtual and armaAtual.ToolTip == getgenv().DRONX.TipoArma then
+        if armaAtual and armaAtual.ToolTip == tipo then
             armaEquipada = armaAtual.Name
             return
         end
-
-        local tipo = getgenv().DRONX.TipoArma or "Sword"
+        
+        -- Procura e equipa
         for _, tool in pairs(player.Backpack:GetChildren()) do
             if tool:IsA("Tool") and tool.ToolTip == tipo then
                 player.Character.Humanoid:EquipTool(tool)
@@ -151,30 +203,28 @@ local function attackNPC(npc)
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
-    -- 🔥 Vai pra 8 studs ACIMA do NPC (só se estiver longe)
-    local dist = (rootPart.Position - hrp.Position).Magnitude
-    if dist > 15 then
-        rootPart.CFrame = hrp.CFrame * CFrame.new(0, 8, 0)
-    end
+    -- 🔥 Teleporta PRA CIMA (3 studs de altura pra não bugar)
+    rootPart.CFrame = hrp.CFrame * CFrame.new(0, 3, 0)
 
+    -- 🔥 Prende o NPC embaixo de você
     pcall(function()
         hum.WalkSpeed = 0
         hum.JumpPower = 0
         hrp.CanCollide = false
         hrp.Size = Vector3.new(60, 60, 60)
-        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -8, 0)
+        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -3, 0)
     end)
 
+    -- 🔥 Equipa arma escolhida
     equiparArma()
     autoHaki()
 
-    atacarRapido()
-    task.wait(0.08)
-    atacarRapido()
-    task.wait(0.08)
-    atacarRapido()
+    -- 🔥 Ataca 5 vezes por ciclo (mais dano)
+    for i = 1, 5 do
+        atacarRapido()
+        task.wait(0.05)
+    end
 end
-
 -- ====== CURA ======
 local function autoHeal()
     if not humanoid or humanoid.Health <= 0 then return end
