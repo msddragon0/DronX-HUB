@@ -37,10 +37,75 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 -- ====== FUNÇÕES ======
+-- ====== HOOK DE ATAQUE (AttackNoCoolDown) ======
+local CombatFramework = require(game:GetService("Players").LocalPlayer.PlayerScripts.CombatFramework)
+local CameraShaker = require(game.ReplicatedStorage.Util.CameraShaker)
+CameraShaker:Stop()
+local AC = debug.getupvalues(CombatFramework)[2]
+
+-- Função que ataca sem cooldown
+local function atacarRapido()
+    pcall(function()
+        if not AC or not AC.activeController then return end
+        local controller = AC.activeController
+        controller.attacking = false
+        controller.timeToNextAttack = 0
+        controller.hitboxMagnitude = 60
+        
+        -- Pega os alvos perto
+        local bladeHits = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
+            player.Character,
+            {player.Character.HumanoidRootPart},
+            60
+        )
+        
+        local targets = {}
+        local hash = {}
+        for _, v in pairs(bladeHits) do
+            if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
+                table.insert(targets, v.Parent.HumanoidRootPart)
+                hash[v.Parent] = true
+            end
+        end
+        
+        if #targets > 0 then
+            -- Força o próximo ataque
+            game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", targets, 1, "")
+            -- Toca animação
+            pcall(function()
+                for _, anim in pairs(controller.animator.anims.basic) do
+                    anim:Play()
+                end
+            end)
+        end
+    end)
+end
+
+-- Equipa arma (melee de preferência)
+local function equiparArma()
+    pcall(function()
+        for _, tool in pairs(player.Backpack:GetChildren()) do
+            if tool:IsA("Tool") and (tool.ToolTip == "Melee" or tool.ToolTip == "Sword") then
+                player.Character.Humanoid:EquipTool(tool)
+                return
+            end
+        end
+    end)
+end
+
+-- Ativa Haki Busho (pra dar mais dano)
+local function autoHaki()
+    if not player.Character:FindFirstChild("HasBuso") then
+        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Buso")
+    end
+end
+
+-- ====== FUNÇÃO: Achar NPC (melhorada) ======
 local function getClosestNPC()
     local closest, minDist = nil, math.huge
     local enemiesFolder = workspace:FindFirstChild("Enemies")
     if not enemiesFolder then return nil end
+
     for _, npc in pairs(enemiesFolder:GetChildren()) do
         if npc:IsA("Model") then
             local hum = npc:FindFirstChildOfClass("Humanoid")
@@ -57,42 +122,90 @@ local function getClosestNPC()
     return closest
 end
 
+-- ====== FUNÇÃO: Atacar NPC (com bring mob) ======
 local function attackNPC(npc)
     if not npc or not npc.Parent then return end
     local hum = npc:FindFirstChildOfClass("Humanoid")
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
+    -- Tween até o NPC (uma vez)
     local dist = (rootPart.Position - hrp.Position).Magnitude
-    if dist > 15 then
+    if dist > 8 then
         local tween = game:GetService("TweenService"):Create(
-            rootPart, TweenInfo.new(dist / 300, Enum.EasingStyle.Linear),
+            rootPart,
+            TweenInfo.new(dist / 320, Enum.EasingStyle.Linear),
             { CFrame = hrp.CFrame * CFrame.new(0, 3, 0) }
         )
         tween:Play()
         tween.Completed:Wait()
     end
 
-    game:GetService("VirtualInputManager"):SendKeyEvent(true, "Q", false, game)
-    task.wait(0.1)
-    game:GetService("VirtualInputManager"):SendKeyEvent(false, "Q", false, game)
+    -- Puxa o NPC pra cima de você (bring mob) — igual Byte Hub
+    pcall(function()
+        hum.WalkSpeed = 0
+        hum.JumpPower = 0
+        hrp.CanCollide = false
+        hrp.Size = Vector3.new(60, 60, 60)
+        hrp.CFrame = rootPart.CFrame * CFrame.new(0, 0, 3)
+    end)
+
+    -- Equipa arma + ativa haki
+    equiparArma()
+    autoHaki()
+
+    -- Ataca 3 vezes por ciclo (mais dano)
+    atacarRapido()
+    task.wait(0.05)
+    atacarRapido()
 end
 
+-- ====== FUNÇÃO: Cura ======
 local function autoHeal()
     if not humanoid or humanoid.Health <= 0 then return end
     if humanoid.Health / humanoid.MaxHealth < getgenv().DRONX.HealThreshold then
-        local potion = player.Backpack:FindFirstChild("Potion") or character:FindFirstChild("Potion")
-        if potion then potion.Activate:FireServer() end
+        -- Procura poção no inventário (funciona com qualquer fruta/poção de cura)
+        local itens = {"Potion", "Devil Fruit", "Mochi", "Dough"}
+        for _, nome in ipairs(itens) do
+            local item = player.Backpack:FindFirstChild(nome) or character:FindFirstChild(nome)
+            if item and item:IsA("Tool") then
+                pcall(function()
+                    item:Activate()  -- Ativa a poção
+                end)
+                task.wait(0.5)
+                return
+            end
+        end
     end
 end
 
+-- ====== FUNÇÃO: Coletar (funciona pra tudo) ======
 local function autoCollect()
+    -- Procura itens no chão (frutas, dinheiro, etc) que caíram
     for _, item in pairs(workspace:GetChildren()) do
-        if item:IsA("Model") and item.Name:lower():find("fruit") then
-            if item:FindFirstChild("Handle") then
-                if (rootPart.Position - item.Handle.Position).Magnitude < 30 then
-                    rootPart.CFrame = item.Handle.CFrame
-                    task.wait(0.2)
+        -- Itens que caem no chão geralmente são Models com Handle + ClickDetector
+        if item:IsA("Model") or item:IsA("Tool") then
+            local handle = item:FindFirstChild("Handle")
+            local clickDetector = item:FindFirstChildOfClass("ClickDetector") 
+                or (handle and handle:FindFirstChildOfClass("ClickDetector"))
+            
+            if handle then
+                local dist = (rootPart.Position - handle.Position).Magnitude
+                if dist < 30 then
+                    -- Tween até o item
+                    local tween = game:GetService("TweenService"):Create(
+                        rootPart,
+                        TweenInfo.new(dist / 320, Enum.EasingStyle.Linear),
+                        { CFrame = CFrame.new(handle.Position + Vector3.new(0, 3, 0)) }
+                    )
+                    tween:Play()
+                    tween.Completed:Wait()
+                    
+                    -- Clica no item pra coletar
+                    if clickDetector then
+                        fireclickdetector(clickDetector)
+                        task.wait(0.3)
+                    end
                 end
             end
         end
