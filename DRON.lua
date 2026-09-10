@@ -9,6 +9,7 @@ getgenv().DRONX = {
     AutoFarm = false,
     AutoHeal = false,
     AutoCollect = false,
+    Maestria = false,
     AttackSpeed = 0.3,
     MaxDistance = 1000,
     HealThreshold = 0.5,
@@ -53,11 +54,26 @@ if not sucesso or not AC then
 end
 
 local function atacarRapido()
-    -- 🔥 AUTO-CLICK (clique básico, não tecla Q)
-    pcall(function()
-        game:GetService("VirtualUser"):CaptureController()
-        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+    -- Tentativa 1: Hook do CombatFramework
+    local ok = pcall(function()
+        if AC and AC.activeController then
+            local c = AC.activeController
+            c.attacking = false
+            c.timeToNextAttack = 0
+            c.timeToNextBlock = 0
+            c.hitboxMagnitude = 60
+            c:attack()
+        end
     end)
+    -- Fallback: clique do mouse
+    if not ok then
+        pcall(function()
+            game:GetService("VirtualUser"):CaptureController()
+            game:GetService("VirtualUser"):Button1Down(Vector2.new(960, 540))
+            task.wait(0.05)
+            game:GetService("VirtualUser"):Button1Up(Vector2.new(960, 540))
+        end)
+    end
 end
 
 -- Equipa arma
@@ -116,28 +132,26 @@ local function attackNPC(npc)
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
-local dist = (rootPart.Position - hrp.Position).Magnitude
-if dist > 8 then
-    rootPart.CFrame = hrp.CFrame * CFrame.new(0, 1, 0)
-    task.wait(0.15)
-end
-    task.wait(0.05)
+    -- 🔥 FICA EM CIMA DO NPC (atualiza sempre)
+    rootPart.CFrame = hrp.CFrame * CFrame.new(0, 5, 0)
 
+    -- Prende NPC embaixo
     pcall(function()
         hum.WalkSpeed = 0
         hum.JumpPower = 0
         hrp.CanCollide = false
         hrp.Size = Vector3.new(60, 60, 60)
-        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -1, 0)
+        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -5, 0)
     end)
 
     equiparArma()
     autoHaki()
 
+    -- 🔥 Ataca várias vezes
     atacarRapido()
-    task.wait(0.05)
+    task.wait(0.08)
     atacarRapido()
-    task.wait(0.05)
+    task.wait(0.08)
     atacarRapido()
 end
 
@@ -214,7 +228,7 @@ coroutine.wrap(function()
     while true do
         task.wait(0.3)
 
-        if getgenv().DRONX.AutoFarm then
+        if getgenv().DRONX.AutoFarm or getgenv().DRONX.Maestria then
             if character and character.Parent and humanoid and humanoid.Health > 0 then
                 if getgenv().DRONX.AutoHeal then autoHeal() end
                 if getgenv().DRONX.AutoCollect then autoCollect() end
@@ -289,6 +303,19 @@ Tabs.Main:AddToggle("AutoHeal", {
     Title = "Auto Cura",
     Default = false,
     Callback = function(v) getgenv().DRONX.AutoHeal = v end
+})
+
+Tabs.Main:AddToggle("Maestria", {
+    Title = "Farm Maestria",
+    Default = false,
+    Callback = function(v)
+        getgenv().DRONX.Maestria = v
+        Fluent:Notify({
+            Title = "DRONX",
+            Content = v and "Maestria ATIVADA!" or "Maestria DESATIVADA",
+            Duration = 3
+        })
+    end
 })
 
 local StatusLabel = Tabs.Config:AddParagraph({
