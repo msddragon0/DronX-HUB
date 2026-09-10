@@ -1,5 +1,5 @@
 -- ============================================================
--- DRONX v3.2 – Auto Farm + Fluent UI (FINAL CORRIGIDO)
+-- DRONX v3.3 – Auto Farm + Maestria + Fluent UI
 -- ============================================================
 
 print("[DRONX] Carregando...")
@@ -10,10 +10,13 @@ getgenv().DRONX = {
     AutoHeal = false,
     AutoCollect = false,
     Maestria = false,
+    TipoArma = "Sword",
     AttackSpeed = 0.3,
     MaxDistance = 1000,
     HealThreshold = 0.5,
 }
+
+local armaEquipada = nil
 
 -- ====== ILHAS ======
 local ilhas = {
@@ -34,12 +37,13 @@ player.CharacterAdded:Connect(function(char)
     character = char
     rootPart = char:WaitForChild("HumanoidRootPart")
     humanoid = char:WaitForChild("Humanoid")
+    armaEquipada = nil
     print("[DRONX] Respawnou.")
 end)
 
 local npcAtual = nil
 
--- ====== HOOK DE ATAQUE (com fallback) ======
+-- ====== HOOK DE ATAQUE ======
 local AC = nil
 
 local sucesso = pcall(function()
@@ -50,60 +54,75 @@ local sucesso = pcall(function()
 end)
 
 if not sucesso or not AC then
-    warn("[DRONX] Hook de ataque falhou. Usando método alternativo (SendKeyEvent).")
+    warn("[DRONX] Hook falhou, usando fallback.")
 end
 
 local function atacarRapido()
-    -- Tentativa 1: Hook do CombatFramework
-    local ok = pcall(function()
+    pcall(function()
         if AC and AC.activeController then
             local c = AC.activeController
             c.attacking = false
             c.timeToNextAttack = 0
             c.timeToNextBlock = 0
             c.hitboxMagnitude = 60
-            c:attack()
-        end
-    end)
-    -- Fallback: clique do mouse
-    if not ok then
-        pcall(function()
+            
+            local bladeHits = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
+                player.Character,
+                {player.Character.HumanoidRootPart},
+                60
+            )
+            local targets = {}
+            local hash = {}
+            for _, v in pairs(bladeHits) do
+                if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
+                    table.insert(targets, v.Parent.HumanoidRootPart)
+                    hash[v.Parent] = true
+                end
+            end
+            
+            if #targets > 0 then
+                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", targets, 1, "")
+                pcall(function()
+                    for _, anim in pairs(c.animator.anims.basic) do
+                        anim:Play()
+                    end
+                end)
+            end
+        else
             game:GetService("VirtualUser"):CaptureController()
             game:GetService("VirtualUser"):Button1Down(Vector2.new(960, 540))
-            task.wait(0.05)
-            game:GetService("VirtualUser"):Button1Up(Vector2.new(960, 540))
-        end)
-    end
+        end
+    end)
 end
 
--- Equipa arma
+-- ====== EQUIPAR ARMA ======
 local function equiparArma()
     pcall(function()
-        -- 🔥 Prioridade: SWORD (espada) > Melee
-        for _, tool in pairs(player.Backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.ToolTip == "Sword" then
-                player.Character.Humanoid:EquipTool(tool)
-                return
-            end
+        local armaAtual = player.Character:FindFirstChildOfClass("Tool")
+        if armaAtual and armaAtual.ToolTip == getgenv().DRONX.TipoArma then
+            armaEquipada = armaAtual.Name
+            return
         end
-        -- Se não tem espada, tenta melee
+
+        local tipo = getgenv().DRONX.TipoArma or "Sword"
         for _, tool in pairs(player.Backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.ToolTip == "Melee" then
+            if tool:IsA("Tool") and tool.ToolTip == tipo then
                 player.Character.Humanoid:EquipTool(tool)
+                armaEquipada = tool.Name
                 return
             end
         end
     end)
 end
 
--- Ativa Haki Busho
+-- ====== HAKI ======
 local function autoHaki()
     if not player.Character:FindFirstChild("HasBuso") then
         game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Buso")
     end
 end
 
--- ====== FUNÇÃO: Achar NPC ======
+-- ====== ACHAR NPC ======
 local function getClosestNPC()
     local closest, minDist = nil, math.huge
     local enemiesFolder = workspace:FindFirstChild("Enemies")
@@ -125,29 +144,30 @@ local function getClosestNPC()
     return closest
 end
 
--- ====== FUNÇÃO: Atacar NPC (em cima + bring mob) ======
+-- ====== ATACAR NPC ======
 local function attackNPC(npc)
     if not npc or not npc.Parent then return end
     local hum = npc:FindFirstChildOfClass("Humanoid")
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
-    -- 🔥 FICA EM CIMA DO NPC (atualiza sempre)
-    rootPart.CFrame = hrp.CFrame * CFrame.new(0, 5, 0)
+    -- 🔥 Vai pra 8 studs ACIMA do NPC (só se estiver longe)
+    local dist = (rootPart.Position - hrp.Position).Magnitude
+    if dist > 15 then
+        rootPart.CFrame = hrp.CFrame * CFrame.new(0, 8, 0)
+    end
 
-    -- Prende NPC embaixo
     pcall(function()
         hum.WalkSpeed = 0
         hum.JumpPower = 0
         hrp.CanCollide = false
         hrp.Size = Vector3.new(60, 60, 60)
-        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -5, 0)
+        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -8, 0)
     end)
 
     equiparArma()
     autoHaki()
 
-    -- 🔥 Ataca várias vezes
     atacarRapido()
     task.wait(0.08)
     atacarRapido()
@@ -155,7 +175,7 @@ local function attackNPC(npc)
     atacarRapido()
 end
 
--- ====== FUNÇÃO: Cura ======
+-- ====== CURA ======
 local function autoHeal()
     if not humanoid or humanoid.Health <= 0 then return end
     if humanoid.Health / humanoid.MaxHealth < getgenv().DRONX.HealThreshold then
@@ -177,7 +197,7 @@ local function autoHeal()
     end
 end
 
--- ====== FUNÇÃO: Coletar ======
+-- ====== COLETAR ======
 local function autoCollect()
     if npcAtual and npcAtual.Parent then
         local h = npcAtual:FindFirstChildOfClass("Humanoid")
@@ -208,7 +228,7 @@ local function autoCollect()
     end
 end
 
--- ====== FUNÇÃO: Trocar Ilha ======
+-- ====== TROCAR ILHA ======
 local function trocarIlha()
     local nivel = player.Data.Level.Value
     local melhorIlha = nil
@@ -269,7 +289,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 
 local Window = Fluent:CreateWindow({
     Title = "DRONX HUB",
-    SubTitle = "v3.2",
+    SubTitle = "v3.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(500, 320),
     Theme = "Dark"
@@ -293,18 +313,6 @@ Tabs.Main:AddToggle("AutoFarm", {
     end
 })
 
-Tabs.Main:AddToggle("AutoCollect", {
-    Title = "Auto Coletar",
-    Default = false,
-    Callback = function(v) getgenv().DRONX.AutoCollect = v end
-})
-
-Tabs.Main:AddToggle("AutoHeal", {
-    Title = "Auto Cura",
-    Default = false,
-    Callback = function(v) getgenv().DRONX.AutoHeal = v end
-})
-
 Tabs.Main:AddToggle("Maestria", {
     Title = "Farm Maestria",
     Default = false,
@@ -316,6 +324,33 @@ Tabs.Main:AddToggle("Maestria", {
             Duration = 3
         })
     end
+})
+
+Tabs.Main:AddDropdown("TipoArma", {
+    Title = "Tipo de Arma (Maestria)",
+    Values = {"Sword", "Melee", "Blox Fruit", "Gun"},
+    Default = "Sword",
+    Callback = function(v)
+        getgenv().DRONX.TipoArma = v
+        armaEquipada = nil
+        Fluent:Notify({
+            Title = "DRONX",
+            Content = "Arma: " .. v,
+            Duration = 2
+        })
+    end
+})
+
+Tabs.Main:AddToggle("AutoCollect", {
+    Title = "Auto Coletar",
+    Default = false,
+    Callback = function(v) getgenv().DRONX.AutoCollect = v end
+})
+
+Tabs.Main:AddToggle("AutoHeal", {
+    Title = "Auto Cura",
+    Default = false,
+    Callback = function(v) getgenv().DRONX.AutoHeal = v end
 })
 
 local StatusLabel = Tabs.Config:AddParagraph({
