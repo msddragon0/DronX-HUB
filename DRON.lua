@@ -1,5 +1,5 @@
 -- ============================================================
--- DRONX v3.0 – Auto Farm + Fluent UI
+-- DRONX v3.1 – Auto Farm + Fluent UI (FINAL)
 -- ============================================================
 
 print("[DRONX] Carregando...")
@@ -36,12 +36,11 @@ player.CharacterAdded:Connect(function(char)
     print("[DRONX] Respawnou.")
 end)
 
--- ====== FUNÇÃO: Achar NPC ======
+-- ====== FUNÇÕES ======
 local function getClosestNPC()
     local closest, minDist = nil, math.huge
     local enemiesFolder = workspace:FindFirstChild("Enemies")
     if not enemiesFolder then return nil end
-
     for _, npc in pairs(enemiesFolder:GetChildren()) do
         if npc:IsA("Model") then
             local hum = npc:FindFirstChildOfClass("Humanoid")
@@ -58,32 +57,27 @@ local function getClosestNPC()
     return closest
 end
 
--- ====== FUNÇÃO: Atacar NPC (COM TWEEN) ======
 local function attackNPC(npc)
     if not npc or not npc.Parent then return end
     local hum = npc:FindFirstChildOfClass("Humanoid")
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
-    -- Tween suave (em vez de teleporte)
     local dist = (rootPart.Position - hrp.Position).Magnitude
     if dist > 15 then
         local tween = game:GetService("TweenService"):Create(
-            rootPart,
-            TweenInfo.new(dist / 300, Enum.EasingStyle.Linear),
+            rootPart, TweenInfo.new(dist / 300, Enum.EasingStyle.Linear),
             { CFrame = hrp.CFrame * CFrame.new(0, 3, 0) }
         )
         tween:Play()
         tween.Completed:Wait()
     end
 
-    -- Ataca com Q
     game:GetService("VirtualInputManager"):SendKeyEvent(true, "Q", false, game)
     task.wait(0.1)
     game:GetService("VirtualInputManager"):SendKeyEvent(false, "Q", false, game)
 end
 
--- ====== FUNÇÃO: Cura ======
 local function autoHeal()
     if not humanoid or humanoid.Health <= 0 then return end
     if humanoid.Health / humanoid.MaxHealth < getgenv().DRONX.HealThreshold then
@@ -92,7 +86,6 @@ local function autoHeal()
     end
 end
 
--- ====== FUNÇÃO: Coletar ======
 local function autoCollect()
     for _, item in pairs(workspace:GetChildren()) do
         if item:IsA("Model") and item.Name:lower():find("fruit") then
@@ -106,7 +99,6 @@ local function autoCollect()
     end
 end
 
--- ====== FUNÇÃO: Trocar Ilha ======
 local function trocarIlha()
     local nivel = player.Data.Level.Value
     local melhorIlha = nil
@@ -129,46 +121,41 @@ coroutine.wrap(function()
         task.wait(0.3)
 
         if getgenv().DRONX.AutoFarm then
-            -- Se morreu, espera respawnar
-            if not character or not character.Parent or not humanoid or humanoid.Health <= 0 then
-                task.wait(2)
-                continue
-            end
+            -- Verifica se está vivo
+            if character and character.Parent and humanoid and humanoid.Health > 0 then
+                -- Cura
+                if getgenv().DRONX.AutoHeal then autoHeal() end
 
-            -- Cura automática (MUDANÇA 3 AQUI)
-            if getgenv().DRONX.AutoHeal then
-                autoHeal()
-            end
+                -- Coleta
+                if getgenv().DRONX.AutoCollect then autoCollect() end
 
-            -- Coleta automática
-            if getgenv().DRONX.AutoCollect then
-                autoCollect()
-            end
+                -- Verifica NPC atual
+                local npcValido = false
+                if npcAtual and npcAtual.Parent then
+                    local h = npcAtual:FindFirstChildOfClass("Humanoid")
+                    if h and h.Health > 0 then npcValido = true end
+                end
 
-            -- Verifica NPC atual
-            local npcValido = false
-            if npcAtual and npcAtual.Parent then
-                local h = npcAtual:FindFirstChildOfClass("Humanoid")
-                if h and h.Health > 0 then npcValido = true end
-            end
-
-            if npcValido then
-                semNPC = 0
-                attackNPC(npcAtual)
-            else
-                npcAtual = nil
-                local novo = getClosestNPC()
-                if novo then
+                if npcValido then
                     semNPC = 0
-                    npcAtual = novo
-                    attackNPC(novo)
+                    attackNPC(npcAtual)
                 else
-                    semNPC = semNPC + 1
-                    if semNPC >= 5 then
-                        trocarIlha()
+                    npcAtual = nil
+                    local novo = getClosestNPC()
+                    if novo then
                         semNPC = 0
+                        npcAtual = novo
+                        attackNPC(novo)
+                    else
+                        semNPC = semNPC + 1
+                        if semNPC >= 5 then
+                            trocarIlha()
+                            semNPC = 0
+                        end
                     end
                 end
+            else
+                task.wait(2)
             end
         end
     end
@@ -179,7 +166,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 
 local Window = Fluent:CreateWindow({
     Title = "DRONX HUB",
-    SubTitle = "v3.0",
+    SubTitle = "v3.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(500, 320),
     Theme = "Dark"
@@ -190,10 +177,18 @@ local Tabs = {
     Config = Window:AddTab({ Title = "Config", Icon = "settings" })
 }
 
+-- Toggle Auto Farm (ÚNICO)
 Tabs.Farm:AddToggle("AutoFarm", {
     Title = "Auto Farm",
     Default = false,
-    Callback = function(v) getgenv().DRONX.AutoFarm = v end
+    Callback = function(v)
+        getgenv().DRONX.AutoFarm = v
+        Fluent:Notify({
+            Title = "DRONX",
+            Content = v and "Farm ATIVADO!" or "Farm DESATIVADO",
+            Duration = 3
+        })
+    end
 })
 
 Tabs.Farm:AddToggle("AutoCollect", {
@@ -206,20 +201,6 @@ Tabs.Farm:AddToggle("AutoHeal", {
     Title = "Auto Cura",
     Default = false,
     Callback = function(v) getgenv().DRONX.AutoHeal = v end
-})
-
--- Notificação quando ligar/desligar Auto Farm
-Tabs.Farm:AddToggle("AutoFarm", {
-    Title = "Auto Farm",
-    Default = false,
-    Callback = function(v)
-        getgenv().DRONX.AutoFarm = v
-        Fluent:Notify({
-            Title = "DRONX",
-            Content = v and "Farm ATIVADO!" or "Farm DESATIVADO",
-            Duration = 3
-        })
-    end
 })
 
 local StatusLabel = Tabs.Config:AddParagraph({
