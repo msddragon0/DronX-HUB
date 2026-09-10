@@ -43,111 +43,123 @@ end)
 
 local npcAtual = nil
 
--- ====== HOOK DE ATAQUE ======
-local AC = nil
+-- ====== HOOK DO COMBAT FRAMEWORK (com fallback) ======
+local CbFw2 = nil
 
-local sucesso = pcall(function()
-    local CombatFramework = require(game:GetService("Players").LocalPlayer.PlayerScripts:WaitForChild("CombatFramework", 5))
-    local CameraShaker = require(game.ReplicatedStorage.Util.CameraShaker)
-    CameraShaker:Stop()
-    AC = debug.getupvalues(CombatFramework)[2]
+-- Tenta vários caminhos
+pcall(function()
+    local CF = require(player.PlayerScripts:WaitForChild("CombatFramework", 3))
+    CbFw2 = debug.getupvalues(CF)[2]
 end)
 
-if not sucesso or not AC then
-    warn("[DRONX] Hook falhou, usando fallback.")
+if not CbFw2 then
+    pcall(function()
+        local CF = require(player.Character:WaitForChild("CombatFramework", 3))
+        CbFw2 = debug.getupvalues(CF)[2]
+    end)
 end
 
--- ====== ATAQUE (baseado no Byte Hub) ======
-local plr = game.Players.LocalPlayer
-local CbFw = debug.getupvalues(require(plr.PlayerScripts.CombatFramework))
-local CbFw2 = CbFw[2]
+if not CbFw2 then
+    pcall(function()
+        local CF = require(game.ReplicatedStorage:WaitForChild("CombatFramework", 3))
+        CbFw2 = debug.getupvalues(CF)[2]
+    end)
+end
+
+if CbFw2 then
+    print("[DRONX] ✅ Hook carregado!")
+else
+    warn("[DRONX] ❌ Hook falhou. Vai usar só clique.")
+end
 
 local function GetCurrentBlade()
+    if not CbFw2 or not CbFw2.activeController then return end
     local p13 = CbFw2.activeController
     local ret = p13.blades[1]
     if not ret then return end
-    while ret.Parent ~= game.Players.LocalPlayer.Character do ret = ret.Parent end
+    while ret.Parent ~= player.Character do ret = ret.Parent end
     return ret
 end
 
+-- ====== ATAQUE ======
 local function atacarRapido()
-    local funcionou = pcall(function()
-        if not CbFw2 or not CbFw2.activeController then error("sem hook") end
-        local AC = CbFw2.activeController
-        local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
-            player.Character,
-            {player.Character.HumanoidRootPart},
-            60
-        )
-        local cac, hash = {}, {}
-        for k, v in pairs(bladehit) do
-            if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
-                table.insert(cac, v.Parent.HumanoidRootPart)
-                hash[v.Parent] = true
-            end
-        end
-        bladehit = cac
-        if #bladehit > 0 then
-            AC.attacking = false
-            AC.timeToNextAttack = 0
-            local u8 = debug.getupvalue(AC.attack, 5)
-            local u9 = debug.getupvalue(AC.attack, 6)
-            local u7 = debug.getupvalue(AC.attack, 4)
-            local u10 = debug.getupvalue(AC.attack, 7)
-            local u12 = (u8 * 798405 + u7 * 727595) % u9
-            local u13 = u7 * 798405
-            u12 = (u12 * u9 + u13) % 1099511627776
-            u8 = math.floor(u12 / u9)
-            u7 = u12 - u8 * u9
-            u10 = u10 + 1
-            debug.setupvalue(AC.attack, 5, u8)
-            debug.setupvalue(AC.attack, 6, u9)
-            debug.setupvalue(AC.attack, 4, u7)
-            debug.setupvalue(AC.attack, 7, u10)
-            pcall(function()
-                for k, v in pairs(AC.animator.anims.basic) do v:Play() end
-            end)
-            if player.Character:FindFirstChildOfClass("Tool") and AC.blades and AC.blades[1] then
-                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange", tostring(GetCurrentBlade()))
-                game.ReplicatedStorage.Remotes.Validator:FireServer(math.floor(u12 / 1099511627776 * 16777215), u10)
-                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, 1, "")
-            end
-        end
-    end)
+    local hookOK = false
     
-    -- Fallback: se o hook falhar, clica
-    if not funcionou then
+    if CbFw2 and CbFw2.activeController then
+        hookOK = pcall(function()
+            local AC = CbFw2.activeController
+            local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
+                player.Character,
+                {player.Character.HumanoidRootPart},
+                60
+            )
+            local cac, hash = {}, {}
+            for k, v in pairs(bladehit) do
+                if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
+                    table.insert(cac, v.Parent.HumanoidRootPart)
+                    hash[v.Parent] = true
+                end
+            end
+            bladehit = cac
+            if #bladehit > 0 then
+                AC.attacking = false
+                AC.timeToNextAttack = 0
+                AC.hitboxMagnitude = 60
+                pcall(function()
+                    for k, v in pairs(AC.animator.anims.basic) do v:Play() end
+                end)
+                if player.Character:FindFirstChildOfClass("Tool") then
+                    game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange", tostring(GetCurrentBlade()))
+                    game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, 1, "")
+                end
+            end
+        end)
+    end
+    
+    -- Fallback: se hook falhou, clica
+    if not hookOK then
         pcall(function()
             game:GetService("VirtualUser"):CaptureController()
             game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+            task.wait(0.05)
             game:GetService("VirtualUser"):Button1Up(Vector2.new(1280, 672))
         end)
     end
 end
-            
+
 -- ====== EQUIPAR ARMA ======
+-- Função auxiliar pra pegar stat
+local function getStat(nome)
+    local stats = player.Data:FindFirstChild("Stats")
+    if not stats then return 0 end
+    local stat = stats:FindFirstChild(nome)
+    if not stat then return 0 end
+    if stat:IsA("ValueBase") then return stat.Value end
+    local val = stat:FindFirstChild("Value") or stat:FindFirstChildOfClass("NumberValue")
+    if val then return val.Value end
+    return 0
+end
+
 local function equiparArma()
     pcall(function()
         local tipo = getgenv().DRONX.TipoArma or "Sword"
         
-        -- 🔥 Verifica se o jogador tem PONTOS DE STAT naquele tipo
-        local stats = player.Data:FindFirstChild("Stats")
-        local temStats = true
-        if stats then
-            local pontos = {
-                ["Sword"] = stats:FindFirstChild("Sword") and stats.Sword.Value or 0,
-                ["Melee"] = stats:FindFirstChild("Melee") and stats.Melee.Value or 0,
-                ["Blox Fruit"] = stats:FindFirstChild("Devil Fruit") and stats["Devil Fruit"].Value or 0,
-                ["Gun"] = stats:FindFirstChild("Gun") and stats.Gun.Value or 0,
-            }
-            if pontos[tipo] and pontos[tipo] <= 0 then
-                temStats = false
-                warn("[DRONX] Sem stats em " .. tipo .. "! Usando Melee (soco).")
-            end
-        end
+        -- Nome correto do stat (é "Demon Fruit", não "Devil Fruit")
+        local nomes = {
+            ["Sword"] = "Sword",
+            ["Melee"] = "Melee",
+            ["Blox Fruit"] = "Demon Fruit",
+            ["Gun"] = "Gun",
+        }
         
-        -- Se não tem stats, usa soco (Melee)
-        if not temStats then tipo = "Melee" end
+        local statNome = nomes[tipo] or tipo
+        local pontos = getStat(statNome)
+        
+        -- Se não tem stats, usa Melee (soco)
+        if pontos <= 0 then
+            tipo = "Melee"
+            warn("[DRONX] Sem stats em " .. statNome .. "! Usando Melee.")
+        end
         
         -- Se já está equipado, não troca
         local armaAtual = player.Character:FindFirstChildOfClass("Tool")
@@ -156,7 +168,7 @@ local function equiparArma()
             return
         end
         
-        -- Procura e equipa
+        -- Equipa
         for _, tool in pairs(player.Backpack:GetChildren()) do
             if tool:IsA("Tool") and tool.ToolTip == tipo then
                 player.Character.Humanoid:EquipTool(tool)
