@@ -276,7 +276,7 @@ coroutine.wrap(function()
                         attackNPC(novo)
                     else
                         semNPC = semNPC + 1
-                        if semNPC >= 5 then
+                        if semNPC >= 30 then
                             trocarIlha()
                             semNPC = 0
                         end
