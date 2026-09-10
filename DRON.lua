@@ -198,14 +198,82 @@ coroutine.wrap(function()
         end
     end
 end)()
--- ====== GUI ======
-local function criarGUI()
-    local guiParent = game:GetService("CoreGui") or player:WaitForChild("PlayerGui")
-    if not guiParent then return end
+-- ====== GUI (FLUENT) ======
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "DRONX_GUI"
-    screenGui.Parent = guiParent
+local Window = Fluent:CreateWindow({
+    Title = "DRONX HUB",
+    SubTitle = "v2.0",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(500, 320),
+    Theme = "Dark"
+})
+
+local Tabs = {
+    Farm = Window:AddTab({ Title = "Farm", Icon = "home" }),
+    Config = Window:AddTab({ Title = "Config", Icon = "settings" })
+}
+
+-- Toggle Auto Farm
+Tabs.Farm:AddToggle("AutoFarm", {
+    Title = "Auto Farm",
+    Default = false,
+    Callback = function(value)
+        getgenv().DRONX.AutoFarm = value
+    end
+})
+
+-- Toggle Auto Coletar
+Tabs.Farm:AddToggle("AutoColetar", {
+    Title = "Auto Coletar",
+    Default = false,
+    Callback = function(value)
+        getgenv().DRONX.AutoColetar = value
+    end
+})
+
+-- Toggle Auto Cura
+Tabs.Farm:AddToggle("AutoCura", {
+    Title = "Auto Cura",
+    Default = false,
+    Callback = function(value)
+        getgenv().DRONX.AutoCura = value
+    end
+})
+
+-- Botão Iniciar
+Tabs.Farm:AddButton({
+    Title = "INICIAR FARM",
+    Callback = function()
+        getgenv().DRONX.Ativo = not getgenv().DRONX.Ativo
+        Fluent:Notify({
+            Title = "DRONX",
+            Content = getgenv().DRONX.Ativo and "Farm ativado!" or "Farm parado.",
+            Duration = 3
+        })
+    end
+})
+
+-- Status na aba Config
+local StatusLabel = Tabs.Config:AddParagraph({
+    Title = "Status",
+    Content = "Carregando..."
+})
+
+coroutine.wrap(function()
+    while task.wait(1) do
+        pcall(function()
+            local p = game.Players.LocalPlayer
+            StatusLabel:SetDesc(
+                "Nível: " .. p.Data.Level.Value ..
+                " | $: " .. p.Data.Beli.Value ..
+                " | Vida: " .. math.floor(p.Character.Humanoid.Health)
+            )
+        end)
+    end
+end)()
+
+print("[DRONX] Fluent GUI carregada.")
 
     -- Botão flutuante
     local toggleBtn = Instance.new("TextButton")
