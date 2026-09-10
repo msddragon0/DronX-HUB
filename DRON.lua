@@ -205,10 +205,17 @@ local function autoHeal()
 end
 
 -- ====== FUNÇÃO: Coletar (funciona pra tudo) ======
+-- ====== FUNÇÃO: Coletar (sem bugar o farm) ======
 local function autoCollect()
-    -- Procura itens no chão (frutas, dinheiro, etc) que caíram
+    -- Só coleta se NÃO estiver atacando NPC no momento
+    if npcAtual and npcAtual.Parent then
+        local h = npcAtual:FindFirstChildOfClass("Humanoid")
+        if h and h.Health > 0 then
+            return -- Sai da função se ainda tem NPC vivo
+        end
+    end
+
     for _, item in pairs(workspace:GetChildren()) do
-        -- Itens que caem no chão geralmente são Models com Handle + ClickDetector
         if item:IsA("Model") or item:IsA("Tool") then
             local handle = item:FindFirstChild("Handle")
             local clickDetector = item:FindFirstChildOfClass("ClickDetector") 
@@ -217,39 +224,22 @@ local function autoCollect()
             if handle then
                 local dist = (rootPart.Position - handle.Position).Magnitude
                 if dist < 30 then
-                    -- Tween até o item
-                    local tween = game:GetService("TweenService"):Create(
-                        rootPart,
-                        TweenInfo.new(dist / 320, Enum.EasingStyle.Linear),
-                        { CFrame = CFrame.new(handle.Position + Vector3.new(0, 3, 0)) }
-                    )
-                    tween:Play()
-                    tween.Completed:Wait()
-                    
-                    -- Clica no item pra coletar
+                    -- Só coleta item que tem ClickDetector (é coletável)
                     if clickDetector then
+                        -- Teleporta rápido, clica e volta
+                        local posAnterior = rootPart.CFrame
+                        rootPart.CFrame = CFrame.new(handle.Position + Vector3.new(0, 3, 0))
+                        task.wait(0.1)
                         fireclickdetector(clickDetector)
-                        task.wait(0.3)
+                        task.wait(0.2)
+                        rootPart.CFrame = posAnterior
+                        break -- Coleta 1 item por ciclo (não buga)
                     end
                 end
             end
         end
     end
 end
-
-local function trocarIlha()
-    local nivel = player.Data.Level.Value
-    local melhorIlha = nil
-    for _, ilha in ipairs(ilhas) do
-        if nivel >= ilha.nivel then melhorIlha = ilha end
-    end
-    if melhorIlha then
-        rootPart.CFrame = melhorIlha.coords
-        print("[DRONX] Indo para " .. melhorIlha.nome)
-        task.wait(2)
-    end
-end
-
 -- ====== LOOP PRINCIPAL ======
 local npcAtual = nil
 
