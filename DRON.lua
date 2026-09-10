@@ -46,23 +46,32 @@ local npcAtual = nil
 -- ====== HOOK DO COMBAT FRAMEWORK (com fallback) ======
 local CbFw2 = nil
 
--- Tenta vários caminhos
-pcall(function()
-    local CF = require(player.PlayerScripts:WaitForChild("CombatFramework", 3))
-    CbFw2 = debug.getupvalues(CF)[2]
-end)
+local caminhos = {
+    function() return require(player.PlayerScripts:WaitForChild("CombatFramework", 3)) end,
+    function() return require(player.Character:WaitForChild("CombatFramework", 3)) end,
+    function() return require(game.ReplicatedStorage:WaitForChild("CombatFramework", 3)) end,
+    function() return require(game.ReplicatedStorage:FindFirstChild("CombatFramework", true)) end,
+}
 
-if not CbFw2 then
+for _, caminho in ipairs(caminhos) do
+    if CbFw2 then break end
     pcall(function()
-        local CF = require(player.Character:WaitForChild("CombatFramework", 3))
-        CbFw2 = debug.getupvalues(CF)[2]
+        local CF = caminho()
+        if CF then
+            CbFw2 = debug.getupvalues(CF)[2]
+        end
     end)
 end
 
+-- Se não achou via require, tenta via getgc
 if not CbFw2 then
     pcall(function()
-        local CF = require(game.ReplicatedStorage:WaitForChild("CombatFramework", 3))
-        CbFw2 = debug.getupvalues(CF)[2]
+        for _, v in pairs(getgc()) do
+            if type(v) == "table" and v.activeController then
+                CbFw2 = v
+                break
+            end
+        end
     end)
 end
 
@@ -72,21 +81,11 @@ else
     warn("[DRONX] ❌ Hook falhou. Vai usar só clique.")
 end
 
-local function GetCurrentBlade()
-    if not CbFw2 or not CbFw2.activeController then return end
-    local p13 = CbFw2.activeController
-    local ret = p13.blades[1]
-    if not ret then return end
-    while ret.Parent ~= player.Character do ret = ret.Parent end
-    return ret
-end
-
 -- ====== ATAQUE ======
 local function atacarRapido()
-    local hookOK = false
-    
+    -- Se tem hook, usa
     if CbFw2 and CbFw2.activeController then
-        hookOK = pcall(function()
+        local ok = pcall(function()
             local AC = CbFw2.activeController
             local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
                 player.Character,
@@ -108,13 +107,20 @@ local function atacarRapido()
                 pcall(function()
                     for k, v in pairs(AC.animator.anims.basic) do v:Play() end
                 end)
-                if player.Character:FindFirstChildOfClass("Tool") then
-                    game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange", tostring(GetCurrentBlade()))
-                    game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, 1, "")
-                end
+                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, 1, "")
             end
         end)
+        if ok then return end
     end
+    
+    -- 🔥 Fallback sempre: clique do mouse
+    pcall(function()
+        game:GetService("VirtualUser"):CaptureController()
+        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+        task.wait(0.05)
+        game:GetService("VirtualUser"):Button1Up(Vector2.new(1280, 672))
+    end)
+end
     
     -- Fallback: se hook falhou, clica
     if not hookOK then
@@ -193,10 +199,12 @@ local function getClosestNPC()
     if not enemiesFolder then return nil end
 
     for _, npc in pairs(enemiesFolder:GetChildren()) do
-        if npc:IsA("Model") then
+        -- 🔥 Verificações extras
+        if npc:IsA("Model") and not npc.Name:lower():find("brigade") and not npc.Name:lower():find("boat") then
             local hum = npc:FindFirstChildOfClass("Humanoid")
             local hrp = npc:FindFirstChild("HumanoidRootPart")
-            if hum and hum.Health > 0 and hrp then
+            -- 🔥 Só aceita se for Humanoid DE VERDADE
+            if hum and hum:IsA("Humanoid") and hum.Health > 0 and hrp then
                 local dist = (rootPart.Position - hrp.Position).Magnitude
                 if dist < minDist and dist <= getgenv().DRONX.MaxDistance then
                     minDist = dist
@@ -207,7 +215,6 @@ local function getClosestNPC()
     end
     return closest
 end
-
 -- ====== ATACAR NPC ======
 local function attackNPC(npc)
     if not npc or not npc.Parent then return end
