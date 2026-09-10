@@ -1,5 +1,5 @@
 -- ============================================================
--- DRONX v3.1 – Auto Farm + Fluent UI (FINAL)
+-- DRONX v3.2 – Auto Farm + Fluent UI (FINAL CORRIGIDO)
 -- ============================================================
 
 print("[DRONX] Carregando...")
@@ -38,65 +38,62 @@ end)
 
 local npcAtual = nil
 
--- ====== FUNÇÕES ======
--- ====== HOOK DE ATAQUE (AttackNoCoolDown) ======
-local CombatFramework = require(game:GetService("Players").LocalPlayer.PlayerScripts.CombatFramework)
-local CameraShaker = require(game.ReplicatedStorage.Util.CameraShaker)
-CameraShaker:Stop()
-local AC = debug.getupvalues(CombatFramework)[2]
+-- ====== HOOK DE ATAQUE (com fallback) ======
+local AC = nil
 
--- Função que ataca sem cooldown
-local function atacarRapido()
-    pcall(function()
-        if not AC or not AC.activeController then return end
-        local controller = AC.activeController
-        controller.attacking = false
-        controller.timeToNextAttack = 0
-        controller.hitboxMagnitude = 60
-        ...
-local CameraShaker = require(game.ReplicatedStorage.Util.CameraShaker)
-CameraShaker:Stop()
-local AC = debug.getupvalues(CombatFramework)[2]
+local sucesso = pcall(function()
+    local CombatFramework = require(game:GetService("Players").LocalPlayer.PlayerScripts:WaitForChild("CombatFramework", 5))
+    local CameraShaker = require(game.ReplicatedStorage.Util.CameraShaker)
+    CameraShaker:Stop()
+    AC = debug.getupvalues(CombatFramework)[2]
+end)
 
--- Função que ataca sem cooldown
-local function atacarRapido()
-    pcall(function()
-        if not AC or not AC.activeController then return end
-        local controller = AC.activeController
-        controller.attacking = false
-        controller.timeToNextAttack = 0
-        controller.hitboxMagnitude = 60
-        
-        -- Pega os alvos perto
-        local bladeHits = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
-            player.Character,
-            {player.Character.HumanoidRootPart},
-            60
-        )
-        
-        local targets = {}
-        local hash = {}
-        for _, v in pairs(bladeHits) do
-            if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
-                table.insert(targets, v.Parent.HumanoidRootPart)
-                hash[v.Parent] = true
-            end
-        end
-        
-        if #targets > 0 then
-            -- Força o próximo ataque
-            game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", targets, 1, "")
-            -- Toca animação
-            pcall(function()
-                for _, anim in pairs(controller.animator.anims.basic) do
-                    anim:Play()
-                end
-            end)
-        end
-    end)
+if not sucesso or not AC then
+    warn("[DRONX] Hook de ataque falhou. Usando método alternativo (SendKeyEvent).")
 end
 
--- Equipa arma (melee de preferência)
+local function atacarRapido()
+    if AC and AC.activeController then
+        pcall(function()
+            local controller = AC.activeController
+            controller.attacking = false
+            controller.timeToNextAttack = 0
+            controller.hitboxMagnitude = 60
+            
+            local bladeHits = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
+                player.Character,
+                {player.Character.HumanoidRootPart},
+                60
+            )
+            
+            local targets = {}
+            local hash = {}
+            for _, v in pairs(bladeHits) do
+                if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
+                    table.insert(targets, v.Parent.HumanoidRootPart)
+                    hash[v.Parent] = true
+                end
+            end
+            
+            if #targets > 0 then
+                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", targets, 1, "")
+                pcall(function()
+                    for _, anim in pairs(controller.animator.anims.basic) do
+                        anim:Play()
+                    end
+                end)
+            end
+        end)
+    else
+        pcall(function()
+            game:GetService("VirtualInputManager"):SendKeyEvent(true, "Q", false, game)
+            task.wait(0.1)
+            game:GetService("VirtualInputManager"):SendKeyEvent(false, "Q", false, game)
+        end)
+    end
+end
+
+-- Equipa arma
 local function equiparArma()
     pcall(function()
         for _, tool in pairs(player.Backpack:GetChildren()) do
@@ -108,14 +105,14 @@ local function equiparArma()
     end)
 end
 
--- Ativa Haki Busho (pra dar mais dano)
+-- Ativa Haki Busho
 local function autoHaki()
     if not player.Character:FindFirstChild("HasBuso") then
         game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Buso")
     end
 end
 
--- ====== FUNÇÃO: Achar NPC (melhorada) ======
+-- ====== FUNÇÃO: Achar NPC ======
 local function getClosestNPC()
     local closest, minDist = nil, math.huge
     local enemiesFolder = workspace:FindFirstChild("Enemies")
@@ -137,19 +134,16 @@ local function getClosestNPC()
     return closest
 end
 
--- ====== FUNÇÃO: Atacar NPC (com bring mob) ======
--- ====== FUNÇÃO: Atacar NPC (em cima + longo alcance) ======
+-- ====== FUNÇÃO: Atacar NPC (em cima + bring mob) ======
 local function attackNPC(npc)
     if not npc or not npc.Parent then return end
     local hum = npc:FindFirstChildOfClass("Humanoid")
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
-    -- 🔥 TELEPORTA PRA CIMA do NPC
     rootPart.CFrame = hrp.CFrame * CFrame.new(0, 1, 0)
     task.wait(0.05)
 
-    -- 🔥 Prende o NPC embaixo de você
     pcall(function()
         hum.WalkSpeed = 0
         hum.JumpPower = 0
@@ -161,7 +155,6 @@ local function attackNPC(npc)
     equiparArma()
     autoHaki()
 
-    -- Ataca 3x por ciclo (rápido)
     atacarRapido()
     task.wait(0.05)
     atacarRapido()
@@ -169,32 +162,19 @@ local function attackNPC(npc)
     atacarRapido()
 end
 
--- ====== FUNÇÃO: Cura (todas as poções do jogo) ======
+-- ====== FUNÇÃO: Cura ======
 local function autoHeal()
     if not humanoid or humanoid.Health <= 0 then return end
     if humanoid.Health / humanoid.MaxHealth < getgenv().DRONX.HealThreshold then
-        -- Lista completa de itens de cura do Blox Fruits
-        local pociones = {
-            "Potion",           -- Poção comum
-            "Devil Fruit",      -- Fruta do diabo (cura HP se equipada)
-            "Mochi",            -- Comida que cura
-            "Dough",            -- Comida que cura
-            "Ice Cream",        -- Sorvete (cura)
-            "Cake",             -- Bolo (cura)
-            "Candy",            -- Doce (cura)
-            "Chocolate",        -- Chocolate (cura)
-            "Bomb",             -- Fruta (não cura, mas tenta)
-        }
+        local pociones = {"Potion", "Devil Fruit", "Mochi", "Dough", "Ice Cream", "Cake", "Candy", "Chocolate", "Bomb"}
         for _, nome in ipairs(pociones) do
             local item = player.Backpack:FindFirstChild(nome) or character:FindFirstChild(nome)
             if item and item:IsA("Tool") then
                 pcall(function()
-                    -- Equipa o item
                     if item.Parent == player.Backpack then
                         player.Character.Humanoid:EquipTool(item)
                         task.wait(0.1)
                     end
-                    -- Ativa (usa) o item
                     item:Activate()
                     task.wait(0.3)
                 end)
@@ -204,15 +184,11 @@ local function autoHeal()
     end
 end
 
--- ====== FUNÇÃO: Coletar (funciona pra tudo) ======
--- ====== FUNÇÃO: Coletar (sem bugar o farm) ======
+-- ====== FUNÇÃO: Coletar ======
 local function autoCollect()
-    -- Só coleta se NÃO estiver atacando NPC no momento
     if npcAtual and npcAtual.Parent then
         local h = npcAtual:FindFirstChildOfClass("Humanoid")
-        if h and h.Health > 0 then
-            return -- Sai da função se ainda tem NPC vivo
-        end
+        if h and h.Health > 0 then return end
     end
 
     for _, item in pairs(workspace:GetChildren()) do
@@ -224,16 +200,14 @@ local function autoCollect()
             if handle then
                 local dist = (rootPart.Position - handle.Position).Magnitude
                 if dist < 30 then
-                    -- Só coleta item que tem ClickDetector (é coletável)
                     if clickDetector then
-                        -- Teleporta rápido, clica e volta
                         local posAnterior = rootPart.CFrame
                         rootPart.CFrame = CFrame.new(handle.Position + Vector3.new(0, 3, 0))
                         task.wait(0.1)
                         fireclickdetector(clickDetector)
                         task.wait(0.2)
                         rootPart.CFrame = posAnterior
-                        break -- Coleta 1 item por ciclo (não buga)
+                        break
                     end
                 end
             end
@@ -262,15 +236,10 @@ coroutine.wrap(function()
         task.wait(0.3)
 
         if getgenv().DRONX.AutoFarm then
-            -- Verifica se está vivo
             if character and character.Parent and humanoid and humanoid.Health > 0 then
-                -- Cura
                 if getgenv().DRONX.AutoHeal then autoHeal() end
-
-                -- Coleta
                 if getgenv().DRONX.AutoCollect then autoCollect() end
 
-                -- Verifica NPC atual
                 local npcValido = false
                 if npcAtual and npcAtual.Parent then
                     local h = npcAtual:FindFirstChildOfClass("Humanoid")
@@ -307,7 +276,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 
 local Window = Fluent:CreateWindow({
     Title = "DRONX HUB",
-    SubTitle = "v3.1",
+    SubTitle = "v3.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(500, 320),
     Theme = "Dark"
@@ -318,7 +287,6 @@ local Tabs = {
     Config = Window:AddTab({ Title = "Config", Icon = "settings" })
 }
 
--- Toggle Auto Farm (ÚNICO)
 Tabs.Main:AddToggle("AutoFarm", {
     Title = "Auto Farm",
     Default = false,
@@ -364,13 +332,12 @@ end)()
 
 print("[DRONX] Carregado com sucesso!")
 
--- ====== BOTÃO FLUTUANTE (ABRIR/FECHAR GUI) ======
+-- ====== BOTÃO FLUTUANTE ======
 local screenGuiBtn = Instance.new("ScreenGui")
 screenGuiBtn.Name = "DRONX_BotaoFlutuante"
 screenGuiBtn.ResetOnSpawn = false
 screenGuiBtn.Parent = game:GetService("CoreGui") or game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- Botão redondo
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(0, 45, 0, 45)
 toggleBtn.Position = UDim2.new(0, 20, 0.5, -22)
@@ -383,26 +350,21 @@ toggleBtn.BorderSizePixel = 0
 toggleBtn.Draggable = true
 toggleBtn.Parent = screenGuiBtn
 
--- Borda arredondada
 local cornerBtn = Instance.new("UICorner")
 cornerBtn.CornerRadius = UDim.new(1, 0)
 cornerBtn.Parent = toggleBtn
 
--- Borda dourada
 local strokeBtn = Instance.new("UIStroke")
 strokeBtn.Color = Color3.fromRGB(255, 215, 0)
 strokeBtn.Thickness = 2
 strokeBtn.Parent = toggleBtn
 
--- Variável de estado
 local guiAberta = true
 
--- Função que acha a GUI do Fluent (SEM pegar a do botão)
 local function encontrarFluent()
     local function procurar(pai)
         for _, gui in pairs(pai:GetChildren()) do
             if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
-                -- Procura por filhos típicos do Fluent
                 if gui.Name:lower():find("fluent") 
                 or gui.Name:lower():find("dawid") 
                 or gui:FindFirstChild("Main") 
@@ -413,53 +375,28 @@ local function encontrarFluent()
         end
         return nil
     end
-    
-    local fluenteCore = procurar(game:GetService("CoreGui"))
-    if fluenteCore then return fluenteCore end
-    
-    local fluentePlayer = procurar(game.Players.LocalPlayer.PlayerGui)
-    if fluentePlayer then return fluentePlayer end
-    
-    return nil
+    return procurar(game:GetService("CoreGui")) or procurar(game.Players.LocalPlayer.PlayerGui)
 end
 
--- Guarda referência à GUI do Fluent
 local fluentGui = encontrarFluent()
-
--- Se não achou de primeira, espera um pouco
 if not fluentGui then
     task.wait(2)
     fluentGui = encontrarFluent()
 end
 
--- Função que alterna (SEM afetar o botão)
 toggleBtn.MouseButton1Click:Connect(function()
     guiAberta = not guiAberta
-    
-    -- Tentativa 1: API nativa do Fluent
     local sucesso = pcall(function()
-        if guiAberta then
-            Window:Show()
-        else
-            Window:Hide()
-        end
+        if guiAberta then Window:Show() else Window:Hide() end
     end)
-    
-    -- Tentativa 2: Procurar e alternar a ScreenGui específica
     if not sucesso then
         if not fluentGui or not fluentGui.Parent then
             fluentGui = encontrarFluent()
         end
-        if fluentGui then
-            fluentGui.Enabled = guiAberta
-        end
+        if fluentGui then fluentGui.Enabled = guiAberta end
     end
-    
-    -- Troca o ícone
     toggleBtn.Text = guiAberta and "◀" or "▶"
     toggleBtn.BackgroundColor3 = guiAberta and Color3.fromRGB(25, 25, 35) or Color3.fromRGB(50, 0, 0)
-    
-    print("[DRONX] GUI " .. (guiAberta and "ABERTA" or "FECHADA"))
 end)
 
 print("[DRONX] Botão flutuante criado!")
