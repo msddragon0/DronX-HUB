@@ -83,54 +83,12 @@ end
 
 -- ====== ATAQUE ======
 local function atacarRapido()
-    -- Se tem hook, usa
-    if CbFw2 and CbFw2.activeController then
-        local ok = pcall(function()
-            local AC = CbFw2.activeController
-            local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
-                player.Character,
-                {player.Character.HumanoidRootPart},
-                60
-            )
-            local cac, hash = {}, {}
-            for k, v in pairs(bladehit) do
-                if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
-                    table.insert(cac, v.Parent.HumanoidRootPart)
-                    hash[v.Parent] = true
-                end
-            end
-            bladehit = cac
-            if #bladehit > 0 then
-                AC.attacking = false
-                AC.timeToNextAttack = 0
-                AC.hitboxMagnitude = 60
-                pcall(function()
-                    for k, v in pairs(AC.animator.anims.basic) do v:Play() end
-                end)
-                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, 1, "")
-            end
-        end)
-        if ok then return end
-    end
-    
-    -- 🔥 Fallback sempre: clique do mouse
     pcall(function()
         game:GetService("VirtualUser"):CaptureController()
         game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
         task.wait(0.05)
         game:GetService("VirtualUser"):Button1Up(Vector2.new(1280, 672))
     end)
-end
-    
-    -- Fallback: se hook falhou, clica
-    if not hookOK then
-        pcall(function()
-            game:GetService("VirtualUser"):CaptureController()
-            game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
-            task.wait(0.05)
-            game:GetService("VirtualUser"):Button1Up(Vector2.new(1280, 672))
-        end)
-    end
 end
 
 -- ====== EQUIPAR ARMA ======
@@ -140,9 +98,12 @@ local function getStat(nome)
     if not stats then return 0 end
     local stat = stats:FindFirstChild(nome)
     if not stat then return 0 end
+    -- Stats agora é Folder com Level dentro
+    if stat:IsA("Folder") then
+        local level = stat:FindFirstChild("Level")
+        return level and level.Value or 0
+    end
     if stat:IsA("ValueBase") then return stat.Value end
-    local val = stat:FindFirstChild("Value") or stat:FindFirstChildOfClass("NumberValue")
-    if val then return val.Value end
     return 0
 end
 
@@ -150,7 +111,6 @@ local function equiparArma()
     pcall(function()
         local tipo = getgenv().DRONX.TipoArma or "Sword"
         
-        -- Nome correto do stat (é "Demon Fruit", não "Devil Fruit")
         local nomes = {
             ["Sword"] = "Sword",
             ["Melee"] = "Melee",
@@ -161,20 +121,18 @@ local function equiparArma()
         local statNome = nomes[tipo] or tipo
         local pontos = getStat(statNome)
         
-        -- Se não tem stats, usa Melee (soco)
-        if pontos <= 0 then
+        -- Se nível for <= 1, considera que não tem stat (level 1 é o inicial)
+        if pontos <= 1 then
             tipo = "Melee"
-            warn("[DRONX] Sem stats em " .. statNome .. "! Usando Melee.")
+            warn("[DRONX] Sem stats em " .. statNome .. " (level " .. pontos .. "). Usando Melee.")
         end
         
-        -- Se já está equipado, não troca
         local armaAtual = player.Character:FindFirstChildOfClass("Tool")
         if armaAtual and armaAtual.ToolTip == tipo then
             armaEquipada = armaAtual.Name
             return
         end
         
-        -- Equipa
         for _, tool in pairs(player.Backpack:GetChildren()) do
             if tool:IsA("Tool") and tool.ToolTip == tipo then
                 player.Character.Humanoid:EquipTool(tool)
