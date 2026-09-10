@@ -222,3 +222,93 @@ coroutine.wrap(function()
 end)()
 
 print("[DRONX] Carregado com sucesso!")
+
+-- ====== BOTÃO FLUTUANTE (ABRIR/FECHAR GUI) ======
+local screenGuiBtn = Instance.new("ScreenGui")
+screenGuiBtn.Name = "DRONX_BotaoFlutuante"
+screenGuiBtn.ResetOnSpawn = false
+screenGuiBtn.Parent = game:GetService("CoreGui") or game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+-- Botão redondo
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 45, 0, 45)
+toggleBtn.Position = UDim2.new(0, 20, 0.5, -22)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+toggleBtn.Text = "◀"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+toggleBtn.TextSize = 22
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.BorderSizePixel = 0
+toggleBtn.Draggable = true
+toggleBtn.Parent = screenGuiBtn
+
+-- Borda arredondada
+local cornerBtn = Instance.new("UICorner")
+cornerBtn.CornerRadius = UDim.new(1, 0)
+cornerBtn.Parent = toggleBtn
+
+-- Borda dourada
+local strokeBtn = Instance.new("UIStroke")
+strokeBtn.Color = Color3.fromRGB(255, 215, 0)
+strokeBtn.Thickness = 2
+strokeBtn.Parent = toggleBtn
+
+-- Função que alterna a GUI
+local guiAberta = true
+
+local function encontrarScreenGui()
+    -- Tenta achar a ScreenGui do Fluent no CoreGui
+    for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            -- O Fluent geralmente cria ScreenGui com esse estilo
+            if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") or gui.Name:lower():find("main") then
+                return gui
+            end
+        end
+    end
+    -- Tenta no PlayerGui também
+    for _, gui in pairs(game.Players.LocalPlayer.PlayerGui:GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") then
+                return gui
+            end
+        end
+    end
+    return nil
+end
+
+toggleBtn.MouseButton1Click:Connect(function()
+    guiAberta = not guiAberta
+    
+    -- Tenta usar a API nativa do Fluent primeiro
+    local sucesso = pcall(function()
+        if guiAberta then
+            Window:Show()  -- método nativo (se existir)
+        else
+            Window:Hide()  -- método nativo (se existir)
+        end
+    end)
+    
+    -- Se não deu certo, procura a ScreenGui e alterna Enabled
+    if not sucesso then
+        local fluentGui = encontrarScreenGui()
+        if fluentGui then
+            fluentGui.Enabled = guiAberta
+        else
+            -- Última tentativa: procura em TODOS os filhos
+            for _, gui in pairs(game:GetService("CoreGui"):GetDescendants()) do
+                if gui:IsA("ScreenGui") and gui.Parent ~= screenGuiBtn then
+                    gui.Enabled = guiAberta
+                end
+            end
+        end
+    end
+    
+    -- Troca o ícone
+    toggleBtn.Text = guiAberta and "◀" or "▶"
+    toggleBtn.BackgroundColor3 = guiAberta and Color3.fromRGB(25, 25, 35) or Color3.fromRGB(50, 0, 0)
+    
+    print("[DRONX] GUI " .. (guiAberta and "aberta" or "fechada"))
+end)
+
+print("[DRONX] Botão flutuante criado!")
