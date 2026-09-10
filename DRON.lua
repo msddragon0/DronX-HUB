@@ -8,12 +8,10 @@ local function getClosestNPC()
 
     for _, npc in pairs(enemiesFolder:GetChildren()) do
         if npc:IsA("Model") then
-            -- CORREÇÃO: usar FindFirstChildOfClass para garantir que é um Humanoid
             local hum = npc:FindFirstChildOfClass("Humanoid")
             local hrp = npc:FindFirstChild("HumanoidRootPart")
             if hum and hum.Health > 0 and hrp then
                 local dist = (rootPart.Position - hrp.Position).Magnitude
-                -- Aumentei o raio para 1000 studs
                 if dist < minDist and dist <= 1000 then
                     minDist = dist
                     closest = npc
@@ -31,11 +29,9 @@ local function attackNPC(npc)
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
-    -- Teleporta direto para perto do NPC (já que o teleporte manual funcionou)
     rootPart.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 0, 5), hrp.Position)
     task.wait(0.15)
 
-    -- Ataca com Q
     game:GetService("VirtualInputManager"):SendKeyEvent(true, "Q", false, game)
     task.wait(0.15)
     game:GetService("VirtualInputManager"):SendKeyEvent(false, "Q", false, game)
