@@ -1,5 +1,5 @@
 -- ============================================================
--- DRONX – Auto Farm v1.0 (Script Completo e Corrigido)
+-- DRONX – Auto Farm v2.0 (Robusto, com cura e troca de ilha)
 -- ============================================================
 
 print("[DRONX] Carregando...")
@@ -8,12 +8,37 @@ print("[DRONX] Carregando...")
 getgenv().DRONX = {
     Ativo = false,
     AutoFarm = false,
+    AutoHeal = true,
+    AutoCollect = true,
+    AttackSpeed = 0.5,       -- intervalo entre ataques
+    MaxDistance = 1000,      -- distância máxima para procurar NPC
+    HealThreshold = 0.5,     -- cura quando vida < 50%
 }
 
--- ====== OBTÉM JOGADOR ======
+-- ====== LISTA DE ILHAS (Third Sea) ======
+-- Adicione/edite conforme sua progressão
+local ilhas = {
+    {nome = "Port Town",      nivel = 1900, coords = CFrame.new(300, 20, 0)},
+    {nome = "Haunted Castle", nivel = 2000, coords = CFrame.new(-500, 40, 3800)},
+    {nome = "Sea of Treats",  nivel = 2200, coords = CFrame.new(300, 30, 4000)},
+    {nome = "Floating Turtle",nivel = 2400, coords = CFrame.new(-200, 200, 5200)},
+    {nome = "Haunted Castle II",nivel = 2500, coords = CFrame.new(-2000, 50, 1000)},
+    {nome = "Castle on the Sea",nivel = 2600, coords = CFrame.new(500, 20, 3000)},
+}
+
+-- ====== JOGADOR ======
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+-- Atualiza variáveis quando o personagem respawnar
+player.CharacterAdded:Connect(function(char)
+    character = char
+    rootPart = char:WaitForChild("HumanoidRootPart")
+    humanoid = char:WaitForChild("Humanoid")
+    print("[DRONX] Personagem respawnou.")
+end)
 
 -- ====== FUNÇÃO: Encontrar NPC mais próximo ======
 local function getClosestNPC()
@@ -29,7 +54,7 @@ local function getClosestNPC()
             local hrp = npc:FindFirstChild("HumanoidRootPart")
             if hum and hum.Health > 0 and hrp then
                 local dist = (rootPart.Position - hrp.Position).Magnitude
-                if dist < minDist and dist <= 1000 then
+                if dist < minDist and dist <= getgenv().DRONX.MaxDistance then
                     minDist = dist
                     closest = npc
                 end
@@ -46,21 +71,97 @@ local function attackNPC(npc)
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
-    rootPart.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 0, 5), hrp.Position)
-    task.wait(0.15)
+    -- Teleporta para frente do NPC (não em cima)
+    rootPart.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 0, 6), hrp.Position)
+    task.wait(0.1)
 
+    -- Ataca com Q
     game:GetService("VirtualInputManager"):SendKeyEvent(true, "Q", false, game)
-    task.wait(0.15)
+    task.wait(0.1)
     game:GetService("VirtualInputManager"):SendKeyEvent(false, "Q", false, game)
+end
+
+-- ====== FUNÇÃO: Cura automática ======
+local function autoHeal()
+    if not humanoid or humanoid.Health <= 0 then return end
+    local percent = humanoid.Health / humanoid.MaxHealth
+    if percent < getgenv().DRONX.HealThreshold then
+        local potion = player.Backpack:FindFirstChild("Potion") or character:FindFirstChild("Potion")
+        if potion then
+            potion.Activate:FireServer()
+        end
+    end
+end
+
+-- ====== FUNÇÃO: Coletar itens ======
+local function autoCollect()
+    for _, item in pairs(workspace:GetChildren()) do
+        if item:IsA("Model") and item.Name:lower():find("fruit") then
+            if item:FindFirstChild("Handle") then
+                local dist = (rootPart.Position - item.Handle.Position).Magnitude
+                if dist < 30 then
+                    rootPart.CFrame = item.Handle.CFrame
+                    task.wait(0.2)
+                end
+            end
+        end
+    end
+end
+
+-- ====== FUNÇÃO: Trocar de ilha ======
+local function trocarIlha()
+    local nivelAtual = player.Data.Level.Value
+    local melhorIlha = nil
+    for _, ilha in ipairs(ilhas) do
+        if nivelAtual >= ilha.nivel then
+            melhorIlha = ilha
+        end
+    end
+    if melhorIlha and melhorIlha.coords then
+        rootPart.CFrame = melhorIlha.coords
+        print("[DRONX] Teleportando para " .. melhorIlha.nome)
+        task.wait(2)
+    end
 end
 
 -- ====== LOOP PRINCIPAL ======
 coroutine.wrap(function()
+    local semNPC = 0  -- contador de ciclos sem encontrar NPC
+
     while true do
-        task.wait()
+        task.wait(getgenv().DRONX.AttackSpeed)
+
         if getgenv().DRONX.Ativo and getgenv().DRONX.AutoFarm then
+            -- Não faz nada se estiver morto
+            if not character or not character.Parent or humanoid.Health <= 0 then
+                task.wait(2)
+                continue
+            end
+
+            -- Cura automática
+            if getgenv().DRONX.AutoHeal then
+                autoHeal()
+            end
+
+            -- Coleta automática
+            if getgenv().DRONX.AutoCollect then
+                autoCollect()
+            end
+
+            -- Procura NPC
             local npc = getClosestNPC()
-            if npc then attackNPC(npc) end
+            if npc then
+                semNPC = 0
+                attackNPC(npc)
+            else
+                semNPC = semNPC + 1
+                -- Se ficar 5 ciclos sem NPC, tenta trocar de ilha
+                if semNPC >= 5 then
+                    print("[DRONX] Sem NPCs por perto. Tentando trocar de ilha...")
+                    trocarIlha()
+                    semNPC = 0
+                end
+            end
         end
     end
 end)()
@@ -87,8 +188,8 @@ local function criarGUI()
 
     -- Janela principal
     local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 280, 0, 180)
-    main.Position = UDim2.new(0.5, -140, 0.5, -90)
+    main.Size = UDim2.new(0, 300, 0, 260)
+    main.Position = UDim2.new(0.5, -150, 0.5, -130)
     main.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
     main.BorderSizePixel = 1
     main.BorderColor3 = Color3.fromRGB(60, 60, 80)
@@ -100,7 +201,7 @@ local function criarGUI()
     local titulo = Instance.new("TextLabel")
     titulo.Size = UDim2.new(1, 0, 0, 35)
     titulo.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    titulo.Text = "DRONX"
+    titulo.Text = "DRONX v2.0"
     titulo.TextColor3 = Color3.fromRGB(255, 215, 0)
     titulo.TextScaled = true
     titulo.Font = Enum.Font.GothamBold
@@ -119,44 +220,52 @@ local function criarGUI()
         main.Visible = false
     end)
 
-    local cbFrame = Instance.new("Frame")
-    cbFrame.Size = UDim2.new(1, -20, 0, 30)
-    cbFrame.Position = UDim2.new(0, 10, 0, 45)
-    cbFrame.BackgroundTransparency = 1
-    cbFrame.Parent = main
+    -- Função para criar checkbox
+    local function criarCheckbox(texto, var, posY)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, -20, 0, 30)
+        frame.Position = UDim2.new(0, 10, 0, posY)
+        frame.BackgroundTransparency = 1
+        frame.Parent = main
 
-    local cbLabel = Instance.new("TextLabel")
-    cbLabel.Size = UDim2.new(0.7, 0, 1, 0)
-    cbLabel.BackgroundTransparency = 1
-    cbLabel.Text = "Auto Farm"
-    cbLabel.TextColor3 = Color3.fromRGB(220, 220, 230)
-    cbLabel.TextSize = 16
-    cbLabel.Font = Enum.Font.Gotham
-    cbLabel.TextXAlignment = Enum.TextXAlignment.Left
-    cbLabel.Parent = cbFrame
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(0.7, 0, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = texto
+        lbl.TextColor3 = Color3.fromRGB(220, 220, 230)
+        lbl.TextSize = 15
+        lbl.Font = Enum.Font.Gotham
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Parent = frame
 
-    local cbCheck = Instance.new("TextButton")
-    cbCheck.Size = UDim2.new(0, 25, 0, 25)
-    cbCheck.Position = UDim2.new(0.85, 0, 0, 2)
-    cbCheck.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-    cbCheck.Text = ""
-    cbCheck.TextColor3 = Color3.fromRGB(255, 255, 255)
-    cbCheck.TextScaled = true
-    cbCheck.Font = Enum.Font.GothamBold
-    cbCheck.BorderSizePixel = 1
-    cbCheck.BorderColor3 = Color3.fromRGB(255, 255, 255)
-    cbCheck.Parent = cbFrame
+        local chk = Instance.new("TextButton")
+        chk.Size = UDim2.new(0, 25, 0, 25)
+        chk.Position = UDim2.new(0.85, 0, 0, 2)
+        chk.BackgroundColor3 = getgenv().DRONX[var] and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(100, 100, 100)
+        chk.Text = getgenv().DRONX[var] and "✓" or ""
+        chk.TextColor3 = Color3.fromRGB(255, 255, 255)
+        chk.TextScaled = true
+        chk.Font = Enum.Font.GothamBold
+        chk.BorderSizePixel = 1
+        chk.BorderColor3 = Color3.fromRGB(255, 255, 255)
+        chk.Parent = frame
 
-    cbCheck.MouseButton1Click:Connect(function()
-        local state = not getgenv().DRONX.AutoFarm
-        getgenv().DRONX.AutoFarm = state
-        cbCheck.BackgroundColor3 = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(100, 100, 100)
-        cbCheck.Text = state and "✓" or ""
-    end)
+        chk.MouseButton1Click:Connect(function()
+            local state = not getgenv().DRONX[var]
+            getgenv().DRONX[var] = state
+            chk.BackgroundColor3 = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(100, 100, 100)
+            chk.Text = state and "✓" or ""
+        end)
+    end
 
+    criarCheckbox("Auto Farm", "AutoFarm", 45)
+    criarCheckbox("Auto Cura", "AutoHeal", 80)
+    criarCheckbox("Auto Coletar", "AutoCollect", 115)
+
+    -- Botão Iniciar/Parar
     local startBtn = Instance.new("TextButton")
-    startBtn.Size = UDim2.new(0.6, 0, 0, 35)
-    startBtn.Position = UDim2.new(0.2, 0, 0, 90)
+    startBtn.Size = UDim2.new(0.6, 0, 0, 40)
+    startBtn.Position = UDim2.new(0.2, 0, 0, 155)
     startBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
     startBtn.Text = "INICIAR"
     startBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -171,6 +280,22 @@ local function criarGUI()
         startBtn.BackgroundColor3 = ativo and Color3.fromRGB(150, 0, 0) or Color3.fromRGB(0, 150, 0)
     end)
 
+    -- Botão trocar ilha
+    local ilhaBtn = Instance.new("TextButton")
+    ilhaBtn.Size = UDim2.new(0.6, 0, 0, 30)
+    ilhaBtn.Position = UDim2.new(0.2, 0, 0, 205)
+    ilhaBtn.BackgroundColor3 = Color3.fromRGB(30, 120, 200)
+    ilhaBtn.Text = "TROCAR ILHA"
+    ilhaBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ilhaBtn.TextScaled = true
+    ilhaBtn.Font = Enum.Font.GothamBold
+    ilhaBtn.Parent = main
+
+    ilhaBtn.MouseButton1Click:Connect(function()
+        trocarIlha()
+    end)
+
+    -- Botão flutuante (abrir/fechar)
     local aberta = false
     toggleBtn.MouseButton1Click:Connect(function()
         aberta = not aberta
@@ -183,4 +308,4 @@ local function criarGUI()
 end
 
 pcall(criarGUI)
-print("[DRONX] Script completo carregado. Clique no ▶ para abrir.")
+print("[DRONX] v2.0 carregado. Clique no ▶ para abrir.")
