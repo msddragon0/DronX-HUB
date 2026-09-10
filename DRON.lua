@@ -286,12 +286,12 @@ local Window = Fluent:CreateWindow({
 })
 
 local Tabs = {
-    Farm = Window:AddTab({ Title = "Farm", Icon = "home" }),
+    Main = Window:AddTab({ Title = "Main", Icon = "home" }),
     Config = Window:AddTab({ Title = "Config", Icon = "settings" })
 }
 
 -- Toggle Auto Farm (ÚNICO)
-Tabs.Farm:AddToggle("AutoFarm", {
+Tabs.Main:AddToggle("AutoFarm", {
     Title = "Auto Farm",
     Default = false,
     Callback = function(v)
@@ -304,13 +304,13 @@ Tabs.Farm:AddToggle("AutoFarm", {
     end
 })
 
-Tabs.Farm:AddToggle("AutoCollect", {
+Tabs.Main:AddToggle("AutoCollect", {
     Title = "Auto Coletar",
     Default = false,
     Callback = function(v) getgenv().DRONX.AutoCollect = v end
 })
 
-Tabs.Farm:AddToggle("AutoHeal", {
+Tabs.Main:AddToggle("AutoHeal", {
     Title = "Auto Cura",
     Default = false,
     Callback = function(v) getgenv().DRONX.AutoHeal = v end
