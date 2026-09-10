@@ -64,23 +64,40 @@ local function getClosestNPC()
     return closest
 end
 
--- ====== FUNÇÃO: Atacar NPC ======
+-- ====== FUNÇÃO: Atacar NPC (sem dash) ======
+local npcAtual = nil -- guarda o NPC que está sendo atacado
+
 local function attackNPC(npc)
     if not npc or not npc.Parent then return end
     local hum = npc:FindFirstChildOfClass("Humanoid")
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
-    -- Teleporta para frente do NPC (não em cima)
-    rootPart.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 0, 6), hrp.Position)
-    task.wait(0.1)
+    -- Se for um NPC novo, teleporta UMA VEZ pra cima dele
+    if npcAtual ~= npc then
+        npcAtual = npc
+        rootPart.CFrame = hrp.CFrame * CFrame.new(0, 2, 0) -- fica EM CIMA do NPC
+        task.wait(0.1)
+    end
+
+    -- Se o NPC se afastou (mais de 10 studs), teleporta de novo
+    local dist = (rootPart.Position - hrp.Position).Magnitude
+    if dist > 10 then
+        rootPart.CFrame = hrp.CFrame * CFrame.new(0, 2, 0)
+        task.wait(0.05)
+    end
 
     -- Ataca com Q
     game:GetService("VirtualInputManager"):SendKeyEvent(true, "Q", false, game)
     task.wait(0.1)
     game:GetService("VirtualInputManager"):SendKeyEvent(false, "Q", false, game)
-end
 
+    -- Ataca com E também (opcional, mais dano)
+    task.wait(0.05)
+    game:GetService("VirtualInputManager"):SendKeyEvent(true, "E", false, game)
+    task.wait(0.1)
+    game:GetService("VirtualInputManager"):SendKeyEvent(false, "E", false, game)
+end
 -- ====== FUNÇÃO: Cura automática ======
 local function autoHeal()
     if not humanoid or humanoid.Health <= 0 then return end
