@@ -59,24 +59,6 @@ local function atacarRapido()
         game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
     end)
 end
-            
-            if #targets > 0 then
-                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", targets, 1, "")
-                pcall(function()
-                    for _, anim in pairs(controller.animator.anims.basic) do
-                        anim:Play()
-                    end
-                end)
-            end
-        end)
-    else
-        pcall(function()
-            game:GetService("VirtualInputManager"):SendKeyEvent(true, "Q", false, game)
-            task.wait(0.1)
-            game:GetService("VirtualInputManager"):SendKeyEvent(false, "Q", false, game)
-        end)
-    end
-end
 
 -- Equipa arma
 local function equiparArma()
@@ -134,7 +116,11 @@ local function attackNPC(npc)
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
+local dist = (rootPart.Position - hrp.Position).Magnitude
+if dist > 8 then
     rootPart.CFrame = hrp.CFrame * CFrame.new(0, 1, 0)
+    task.wait(0.15)
+end
     task.wait(0.05)
 
     pcall(function()
