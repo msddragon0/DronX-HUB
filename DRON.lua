@@ -129,7 +129,7 @@ coroutine.wrap(function()
     while true do
         task.wait(0.3)
 
-        if getgenv().DRONX.Ativo and getgenv().DRONX.AutoFarm then
+        if getgenv().DRONX.AutoFarm then
             -- Se morreu, espera respawnar
             if not character or not character.Parent or not humanoid or humanoid.Health <= 0 then
                 task.wait(2)
@@ -209,13 +209,15 @@ Tabs.Farm:AddToggle("AutoHeal", {
     Callback = function(v) getgenv().DRONX.AutoHeal = v end
 })
 
-Tabs.Farm:AddButton({
-    Title = "INICIAR FARM",
-    Callback = function()
-        getgenv().DRONX.Ativo = not getgenv().DRONX.Ativo
+-- Notificação quando ligar/desligar Auto Farm
+Tabs.Farm:AddToggle("AutoFarm", {
+    Title = "Auto Farm",
+    Default = false,
+    Callback = function(v)
+        getgenv().DRONX.AutoFarm = v
         Fluent:Notify({
             Title = "DRONX",
-            Content = getgenv().DRONX.Ativo and "Farm ativado!" or "Farm parado.",
+            Content = v and "Farm ATIVADO!" or "Farm DESATIVADO",
             Duration = 3
         })
     end
