@@ -1,64 +1,58 @@
--- ============================================================
--- DRONX – TESTE DE DEBUG
--- ============================================================
+-- ====== FUNÇÃO: Encontrar NPC mais próximo (melhorada) ======
+local function getClosestNPC()
+    local closest = nil
+    local minDist = math.huge
+    local level = player.Data.Level.Value
 
-print("[DRONX] Iniciando teste...")
+    -- Verifica se a pasta Enemies existe
+    local enemiesFolder = workspace:FindFirstChild("Enemies")
+    if not enemiesFolder then return nil end
 
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local rootPart = character:WaitForChild("HumanoidRootPart")
+    for _, npc in pairs(enemiesFolder:GetChildren()) do
+        -- Verificações de segurança
+        if npc:IsA("Model") 
+        and npc:FindFirstChild("Humanoid") 
+        and npc.Humanoid.Health > 0 
+        and npc:FindFirstChild("HumanoidRootPart") then
 
--- Teste 1: Verificar se a pasta Enemies existe
-if not workspace:FindFirstChild("Enemies") then
-    warn("[DRONX] ERRO: A pasta 'Enemies' não existe no workspace!")
-else
-    print("[DRONX] Pasta Enemies encontrada. Total de NPCs:", #workspace.Enemies:GetChildren())
-end
-
--- Teste 2: Verificar se o jogador tem Data e Level
-if player:FindFirstChild("Data") and player.Data:FindFirstChild("Level") then
-    print("[DRONX] Nível do jogador:", player.Data.Level.Value)
-else
-    warn("[DRONX] ERRO: Dados do jogador (Data/Level) não carregaram ainda!")
-end
-
--- Teste 3: Função de ataque simplificada
-local function testarAtaque()
-    print("[DRONX] Tentando atacar...")
-    game:GetService("VirtualInputManager"):SendKeyEvent(true, "Q", false, game)
-    task.wait(0.1)
-    game:GetService("VirtualInputManager"):SendKeyEvent(false, "Q", false, game)
-end
-
--- Teste 4: Loop principal com prints
-coroutine.wrap(function()
-    while true do
-        task.wait(2)
-        if getgenv().DRONX and getgenv().DRONX.Ativo then
-            print("[DRONX] Loop ativo rodando...")
-            
-            -- Tenta encontrar qualquer inimigo (sem filtro de nível)
-            local npcEncontrado = nil
-            for _, npc in pairs(workspace.Enemies:GetChildren()) do
-                if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
-                    npcEncontrado = npc
-                    break
+            local npcLevel = npc:FindFirstChild("Level") and npc.Level.Value or 0
+            -- Filtro de nível: só farma NPCs entre 5 níveis abaixo e 10 acima
+            if npcLevel >= level - 5 and npcLevel <= level + 10 then
+                local dist = (rootPart.Position - npc.HumanoidRootPart.Position).Magnitude
+                if dist < minDist and dist <= 40 then
+                    minDist = dist
+                    closest = npc
                 end
-            end
-
-            if npcEncontrado then
-                print("[DRONX] NPC encontrado:", npcEncontrado.Name)
-                -- Teleporta para perto e ataca
-                if npcEncontrado:FindFirstChild("HumanoidRootPart") then
-                    rootPart.CFrame = npcEncontrado.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5)
-                    task.wait(0.2)
-                    testarAtaque()
-                end
-            else
-                warn("[DRONX] Nenhum NPC vivo encontrado na pasta Enemies.")
             end
         end
     end
-end)()
+    return closest
+end
 
-print("[DRONX] Teste carregado. Ative o Auto Farm na GUI e veja o console.")
+-- ====== FUNÇÃO: Atacar NPC (versão segura, sem teleporte brusco) ======
+local function attackNPC(npc)
+    if not npc or not npc.Parent then return end
+    if not npc:FindFirstChild("Humanoid") or npc.Humanoid.Health <= 0 then return end
+    if not npc:FindFirstChild("HumanoidRootPart") then return end
+
+    -- Move suavemente para perto do NPC (em vez de teleportar)
+    local targetPos = npc.HumanoidRootPart.Position
+    local currentPos = rootPart.Position
+    local direction = (targetPos - currentPos).Unit
+    local newPos = currentPos + direction * 5 -- fica a 5 studs do NPC
+
+    -- Teleporte suave (apenas uma pequena distância)
+    rootPart.CFrame = CFrame.new(newPos, targetPos)
+
+    -- Espera o personagem chegar (com limite de tempo)
+    local timeout = 0
+    repeat
+        task.wait(0.05)
+        timeout = timeout + 1
+    until (rootPart.Position - targetPos).Magnitude < 10 or timeout > 20
+
+    -- Ataca com a tecla Q
+    game:GetService("VirtualInputManager"):SendKeyEvent(true, "Q", false, game)
+    task.wait(0.15)
+    game:GetService("VirtualInputManager"):SendKeyEvent(false, "Q", false, game)
+end
