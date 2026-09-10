@@ -53,6 +53,19 @@ local function atacarRapido()
         controller.attacking = false
         controller.timeToNextAttack = 0
         controller.hitboxMagnitude = 60
+        ...
+local CameraShaker = require(game.ReplicatedStorage.Util.CameraShaker)
+CameraShaker:Stop()
+local AC = debug.getupvalues(CombatFramework)[2]
+
+-- Função que ataca sem cooldown
+local function atacarRapido()
+    pcall(function()
+        if not AC or not AC.activeController then return end
+        local controller = AC.activeController
+        controller.attacking = false
+        controller.timeToNextAttack = 0
+        controller.hitboxMagnitude = 60
         
         -- Pega os alvos perto
         local bladeHits = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
