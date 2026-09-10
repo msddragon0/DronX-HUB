@@ -6,7 +6,6 @@ print("[DRONX] Carregando...")
 
 -- ====== CONFIGURAÇÕES ======
 getgenv().DRONX = {
-    Ativo = false,
     AutoFarm = false,
     AutoHeal = false,
     AutoCollect = false,
