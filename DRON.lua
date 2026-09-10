@@ -53,27 +53,12 @@ if not sucesso or not AC then
 end
 
 local function atacarRapido()
-    if AC and AC.activeController then
-        pcall(function()
-            local controller = AC.activeController
-            controller.attacking = false
-            controller.timeToNextAttack = 0
-            controller.hitboxMagnitude = 60
-            
-            local bladeHits = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
-                player.Character,
-                {player.Character.HumanoidRootPart},
-                60
-            )
-            
-            local targets = {}
-            local hash = {}
-            for _, v in pairs(bladeHits) do
-                if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
-                    table.insert(targets, v.Parent.HumanoidRootPart)
-                    hash[v.Parent] = true
-                end
-            end
+    -- 🔥 AUTO-CLICK (clique básico, não tecla Q)
+    pcall(function()
+        game:GetService("VirtualUser"):CaptureController()
+        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+    end)
+end
             
             if #targets > 0 then
                 game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", targets, 1, "")
@@ -96,8 +81,16 @@ end
 -- Equipa arma
 local function equiparArma()
     pcall(function()
+        -- 🔥 Prioridade: SWORD (espada) > Melee
         for _, tool in pairs(player.Backpack:GetChildren()) do
-            if tool:IsA("Tool") and (tool.ToolTip == "Melee" or tool.ToolTip == "Sword") then
+            if tool:IsA("Tool") and tool.ToolTip == "Sword" then
+                player.Character.Humanoid:EquipTool(tool)
+                return
+            end
+        end
+        -- Se não tem espada, tenta melee
+        for _, tool in pairs(player.Backpack:GetChildren()) do
+            if tool:IsA("Tool") and tool.ToolTip == "Melee" then
                 player.Character.Humanoid:EquipTool(tool)
                 return
             end
