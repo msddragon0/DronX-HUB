@@ -143,13 +143,13 @@ end
 
 -- ====== LOOP PRINCIPAL ======
 coroutine.wrap(function()
-    local semNPC = 0  -- contador de ciclos sem encontrar NPC
+    local semNPC = 0
+    npcAtual = nil -- reseta o NPC atual
 
     while true do
-        task.wait(getgenv().DRONX.AttackSpeed)
+        task.wait(0.3) -- intervalo entre ciclos (não muito rápido)
 
         if getgenv().DRONX.Ativo and getgenv().DRONX.AutoFarm then
-            -- Não faz nada se estiver morto
             if not character or not character.Parent or humanoid.Health <= 0 then
                 task.wait(2)
                 continue
@@ -165,24 +165,39 @@ coroutine.wrap(function()
                 autoCollect()
             end
 
-            -- Procura NPC
-            local npc = getClosestNPC()
-            if npc then
+            -- Verifica se o NPC atual ainda está vivo
+            local npcValido = false
+            if npcAtual and npcAtual.Parent then
+                local humAtual = npcAtual:FindFirstChildOfClass("Humanoid")
+                if humAtual and humAtual.Health > 0 then
+                    npcValido = true
+                end
+            end
+
+            if npcValido then
+                -- Continua atacando o mesmo NPC
                 semNPC = 0
-                attackNPC(npc)
+                attackNPC(npcAtual)
             else
-                semNPC = semNPC + 1
-                -- Se ficar 5 ciclos sem NPC, tenta trocar de ilha
-                if semNPC >= 5 then
-                    print("[DRONX] Sem NPCs por perto. Tentando trocar de ilha...")
-                    trocarIlha()
+                -- Procura um novo NPC
+                npcAtual = nil
+                local novoNPC = getClosestNPC()
+                if novoNPC then
                     semNPC = 0
+                    npcAtual = novoNPC
+                    attackNPC(novoNPC)
+                else
+                    semNPC = semNPC + 1
+                    if semNPC >= 5 then
+                        print("[DRONX] Sem NPCs. Trocando de ilha...")
+                        trocarIlha()
+                        semNPC = 0
+                    end
                 end
             end
         end
     end
 end)()
-
 -- ====== GUI ======
 local function criarGUI()
     local guiParent = game:GetService("CoreGui") or player:WaitForChild("PlayerGui")
