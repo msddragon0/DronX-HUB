@@ -123,11 +123,36 @@ local function getClosestNPC()
 end
 
 -- ====== FUNÇÃO: Atacar NPC (com bring mob) ======
+-- ====== FUNÇÃO: Atacar NPC (em cima + longo alcance) ======
 local function attackNPC(npc)
     if not npc or not npc.Parent then return end
     local hum = npc:FindFirstChildOfClass("Humanoid")
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
+
+    -- 🔥 TELEPORTA PRA CIMA do NPC
+    rootPart.CFrame = hrp.CFrame * CFrame.new(0, 1, 0)
+    task.wait(0.05)
+
+    -- 🔥 Prende o NPC embaixo de você
+    pcall(function()
+        hum.WalkSpeed = 0
+        hum.JumpPower = 0
+        hrp.CanCollide = false
+        hrp.Size = Vector3.new(60, 60, 60)
+        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -1, 0)
+    end)
+
+    equiparArma()
+    autoHaki()
+
+    -- Ataca 3x por ciclo (rápido)
+    atacarRapido()
+    task.wait(0.05)
+    atacarRapido()
+    task.wait(0.05)
+    atacarRapido()
+end
 
     -- Tween até o NPC (uma vez)
     local dist = (rootPart.Position - hrp.Position).Magnitude
