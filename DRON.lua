@@ -75,63 +75,15 @@ local function GetCurrentBlade()
     return ret
 end
 
--- ====== ATAQUE ======
+-- ====== ATAQUE (mouse1click - funcionou no teste) ======
 local function atacarRapido()
-    -- Tentativa 1: Hook
-    if CbFw2 and CbFw2.activeController then
-        local ok = pcall(function()
-            local AC = CbFw2.activeController
-            AC.attacking = false
-            AC.timeToNextAttack = 0
-            AC.hitboxMagnitude = 200
-            
-            local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
-                plr.Character,
-                {plr.Character.HumanoidRootPart},
-                200
-            )
-            local cac, hash = {}, {}
-            for k, v in pairs(bladehit) do
-                if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
-                    table.insert(cac, v.Parent.HumanoidRootPart)
-                    hash[v.Parent] = true
-                end
-            end
-            bladehit = cac
-            if #bladehit > 0 then
-                local u8 = debug.getupvalue(AC.attack, 5)
-                local u9 = debug.getupvalue(AC.attack, 6)
-                local u7 = debug.getupvalue(AC.attack, 4)
-                local u10 = debug.getupvalue(AC.attack, 7)
-                local u12 = (u8 * 798405 + u7 * 727595) % u9
-                local u13 = u7 * 798405
-                u12 = (u12 * u9 + u13) % 1099511627776
-                u8 = math.floor(u12 / u9)
-                u7 = u12 - u8 * u9
-                u10 = u10 + 1
-                debug.setupvalue(AC.attack, 5, u8)
-                debug.setupvalue(AC.attack, 6, u9)
-                debug.setupvalue(AC.attack, 4, u7)
-                debug.setupvalue(AC.attack, 7, u10)
-                pcall(function()
-                    for k, v in pairs(AC.animator.anims.basic) do v:Play() end
-                end)
-                if plr.Character:FindFirstChildOfClass("Tool") then
-                    game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange", tostring(GetCurrentBlade()))
-                    game.ReplicatedStorage.Remotes.Validator:FireServer(math.floor(u12 / 1099511627776 * 16777215), u10)
-                    game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, 1, "")
-                end
-            end
-        end)
-        if ok then return end
-    end
-    
-    -- Tentativa 2: keypress Q
     pcall(function()
-        if keypress then
-            keypress(0x51)
+        if mouse1click then
+            mouse1click()
+        elseif mouse1press then
+            mouse1press()
             task.wait(0.05)
-            keyrelease(0x51)
+            mouse1release()
         end
     end)
 end
@@ -206,17 +158,22 @@ local function attackNPC(npc)
         hrp.CFrame = rootPart.CFrame * CFrame.new(-posX, -posY, -posZ)
     end)
 
+    -- 🔥 Equipa PRIMEIRO
     if getgenv().DRONX.AutoFarm then
         equiparArma("Melee")
     elseif getgenv().DRONX.AutoMaestria then
         equiparArma()
     end
     
+    -- 🔥 ESPERA a arma equipar
+    task.wait(0.3)
+    
     autoHaki()
 
-    for i = 1, 5 do
+    -- 🔥 Ataca com mouse1click
+    for i = 1, 8 do
         atacarRapido()
-        task.wait(0.05)
+        task.wait(0.08)
     end
 end
 
