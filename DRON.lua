@@ -75,17 +75,29 @@ local function GetCurrentBlade()
     return ret
 end
 
--- ====== ATAQUE (segura o clique) ======
+-- ====== ATAQUE (CombatController novo) ======
+local CombatController = nil
+pcall(function()
+    CombatController = require(game.ReplicatedStorage.Controllers.CombatController)
+end)
+
 local function atacarRapido()
+    -- Tentativa 1: CombatController novo
+    if CombatController then
+        pcall(function()
+            if CombatController.attack then
+                CombatController.attack()
+            end
+        end)
+        return
+    end
+    
+    -- Tentativa 2: keypress Q (não clica em tudo)
     pcall(function()
-        if mouse1press and mouse1release then
-            mouse1press()
-            task.wait(0.15)   -- segura por 0.15s
-            mouse1release()
-        elseif mouse1click then
-            mouse1click()
+        if keypress then
+            keypress(0x51)
             task.wait(0.05)
-            mouse1click()
+            keyrelease(0x51)
         end
     end)
 end
