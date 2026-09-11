@@ -75,15 +75,17 @@ local function GetCurrentBlade()
     return ret
 end
 
--- ====== ATAQUE (mouse1click - funcionou no teste) ======
+-- ====== ATAQUE (segura o clique) ======
 local function atacarRapido()
     pcall(function()
-        if mouse1click then
-            mouse1click()
-        elseif mouse1press then
+        if mouse1press and mouse1release then
             mouse1press()
-            task.wait(0.05)
+            task.wait(0.15)   -- segura por 0.15s
             mouse1release()
+        elseif mouse1click then
+            mouse1click()
+            task.wait(0.05)
+            mouse1click()
         end
     end)
 end
@@ -145,7 +147,7 @@ local function attackNPC(npc)
     if not hum or hum.Health <= 0 or not hrp then return end
 
     local posX = getgenv().DRONX.posX or 0
-    local posY = getgenv().DRONX.posY or 30
+    local posY = getgenv().DRONX.posY or 15  -- 🔥 15 studs (mais perto)
     local posZ = getgenv().DRONX.posZ or 0
     
     rootPart.CFrame = hrp.CFrame * CFrame.new(posX, posY, posZ)
@@ -158,25 +160,21 @@ local function attackNPC(npc)
         hrp.CFrame = rootPart.CFrame * CFrame.new(-posX, -posY, -posZ)
     end)
 
-    -- 🔥 Equipa PRIMEIRO
     if getgenv().DRONX.AutoFarm then
         equiparArma("Melee")
     elseif getgenv().DRONX.AutoMaestria then
         equiparArma()
     end
     
-    -- 🔥 ESPERA a arma equipar
     task.wait(0.3)
-    
     autoHaki()
 
-    -- 🔥 Ataca com mouse1click
-    for i = 1, 8 do
+    -- 🔥 Ataca 20 vezes seguidas (muito mais)
+    for i = 1, 20 do
         atacarRapido()
         task.wait(0.08)
     end
 end
-
 -- ====== BODYCLIP ======
 local function atualizarBodyClip()
     pcall(function()
