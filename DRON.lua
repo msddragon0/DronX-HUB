@@ -75,30 +75,15 @@ local function GetCurrentBlade()
     return ret
 end
 
--- ====== ATAQUE (CombatController novo) ======
-local CombatController = nil
-pcall(function()
-    CombatController = require(game.ReplicatedStorage.Controllers.CombatController)
-end)
-
-local function atacarRapido()
-    -- Tentativa 1: CombatController novo
-    if CombatController then
-        pcall(function()
-            if CombatController.attack then
-                CombatController.attack()
-            end
-        end)
-        return
-    end
-    
-    -- Tentativa 2: keypress Q (não clica em tudo)
+-- ====== ATAQUE (olha pro NPC e clica) ======
+local function atacarRapido(npc)
     pcall(function()
-        if keypress then
-            keypress(0x51)
-            task.wait(0.05)
-            keyrelease(0x51)
+        if npc and npc.Parent and npc:FindFirstChild("HumanoidRootPart") then
+            local hrp = npc.HumanoidRootPart
+            local direcao = (hrp.Position - rootPart.Position).Unit
+            rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + direcao)
         end
+        mouse1click()
     end)
 end
 
@@ -181,12 +166,10 @@ local function attackNPC(npc)
     task.wait(0.3)
     autoHaki()
 
-    -- 🔥 Ataca 20 vezes seguidas (muito mais)
     for i = 1, 20 do
-        atacarRapido()
-        task.wait(0.08)
+        atacarRapido(npc)  -- 🔥 passa o NPC
+        task.wait(0.1)
     end
-end
 -- ====== BODYCLIP ======
 local function atualizarBodyClip()
     pcall(function()
