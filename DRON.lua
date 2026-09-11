@@ -43,14 +43,17 @@ end)
 
 local npcAtual = nil
 
--- ====== HOOK DO COMBAT FRAMEWORK (com fallback) ======
+-- ====== HOOK DO COMBAT FRAMEWORK (baseado no Byte Hub) ======
+local plr = game.Players.LocalPlayer
+local CbFw = nil
 local CbFw2 = nil
 
+-- Tenta pegar o CombatFramework (vários caminhos)
 local caminhos = {
-    function() return require(player.PlayerScripts:WaitForChild("CombatFramework", 3)) end,
-    function() return require(player.Character:WaitForChild("CombatFramework", 3)) end,
-    function() return require(game.ReplicatedStorage:WaitForChild("CombatFramework", 3)) end,
-    function() return require(game.ReplicatedStorage:FindFirstChild("CombatFramework", true)) end,
+    function() return plr.PlayerScripts:WaitForChild("CombatFramework", 3) end,
+    function() return plr.PlayerScripts:FindFirstChild("CombatFramework") end,
+    function() return plr.Character:WaitForChild("CombatFramework", 3) end,
+    function() return plr.Character:FindFirstChild("CombatFramework") end,
 }
 
 for _, caminho in ipairs(caminhos) do
@@ -58,36 +61,104 @@ for _, caminho in ipairs(caminhos) do
     pcall(function()
         local CF = caminho()
         if CF then
-            CbFw2 = debug.getupvalues(CF)[2]
+            local modulo = require(CF)
+            CbFw = debug.getupvalues(modulo)
+            CbFw2 = CbFw[2]
         end
     end)
 end
 
--- Se não achou via require, tenta via getgc
-if not CbFw2 then
-    pcall(function()
-        for _, v in pairs(getgc()) do
-            if type(v) == "table" and v.activeController then
-                CbFw2 = v
-                break
-            end
-        end
-    end)
-end
-
+-- Se achou, para o CameraShaker (o Byte Hub faz isso)
 if CbFw2 then
+    pcall(function()
+        local CameraShaker = require(game.ReplicatedStorage.Util.CameraShaker)
+        CameraShaker:Stop()
+    end)
     print("[DRONX] ✅ Hook carregado!")
 else
-    warn("[DRONX] ❌ Hook falhou. Vai usar só clique.")
+    warn("[DRONX] ❌ Hook falhou. Vai usar clique.")
 end
 
--- ====== ATAQUE ======
+-- Função pra pegar a arma atual
+local function GetCurrentBlade() 
+    if not CbFw2 or not CbFw2.activeController then return end
+    local p13 = CbFw2.activeController
+    local ret = p13.blades[1]
+    if not ret then return end
+    while ret.Parent ~= game.Players.LocalPlayer.Character do 
+        ret = ret.Parent 
+    end
+    return ret
+end
+
+-- ====== ATAQUE (hook do Byte Hub) ======
 local function atacarRapido()
+    -- Se tem hook, usa o ataque rápido
+    if CbFw2 and CbFw2.activeController then
+        local ok = pcall(function()
+            local AC = CbFw2.activeController
+            for i = 1, 1 do
+                local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
+                    plr.Character,
+                    {plr.Character.HumanoidRootPart},
+                    60
+                )
+                local cac = {}
+                local hash = {}
+                for k, v in pairs(bladehit) do
+                    if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
+                        table.insert(cac, v.Parent.HumanoidRootPart)
+                        hash[v.Parent] = true
+                    end
+                end
+                bladehit = cac
+                if #bladehit > 0 then
+                    local u8 = debug.getupvalue(AC.attack, 5)
+                    local u9 = debug.getupvalue(AC.attack, 6)
+                    local u7 = debug.getupvalue(AC.attack, 4)
+                    local u10 = debug.getupvalue(AC.attack, 7)
+                    local u12 = (u8 * 798405 + u7 * 727595) % u9
+                    local u13 = u7 * 798405
+                    (function()
+                        u12 = (u12 * u9 + u13) % 1099511627776
+                        u8 = math.floor(u12 / u9)
+                        u7 = u12 - u8 * u9
+                    end)()
+                    u10 = u10 + 1
+                    debug.setupvalue(AC.attack, 5, u8)
+                    debug.setupvalue(AC.attack, 6, u9)
+                    debug.setupvalue(AC.attack, 4, u7)
+                    debug.setupvalue(AC.attack, 7, u10)
+                    pcall(function()
+                        for k, v in pairs(AC.animator.anims.basic) do
+                            v:Play()
+                        end
+                    end)
+                    if plr.Character:FindFirstChildOfClass("Tool") and AC.blades and AC.blades[1] then
+                        game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange", tostring(GetCurrentBlade()))
+                        game.ReplicatedStorage.Remotes.Validator:FireServer(math.floor(u12 / 1099511627776 * 16777215), u10)
+                        game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, i, "")
+                    end
+                end
+            end
+        end)
+        if ok then return end
+    end
+    
+    -- Fallback: clique (se o hook falhar)
     pcall(function()
-        game:GetService("VirtualUser"):CaptureController()
-        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
-        task.wait(0.05)
-        game:GetService("VirtualUser"):Button1Up(Vector2.new(1280, 672))
+        if mouse1click then
+            mouse1click()
+        elseif mouse1press then
+            mouse1press()
+            task.wait(0.05)
+            mouse1release()
+        else
+            game:GetService("VirtualUser"):CaptureController()
+            game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+            task.wait(0.05)
+            game:GetService("VirtualUser"):Button1Up(Vector2.new(1280, 672))
+        end
     end)
 end
 
