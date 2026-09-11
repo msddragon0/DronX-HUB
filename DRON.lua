@@ -1,5 +1,5 @@
 -- ============================================================
--- DRONX v3.3 – Auto Farm + Maestria + Fluent UI
+-- DRONX v4.0 – Auto Farm + Auto Maestria + Hook do Byte Hub
 -- ============================================================
 
 print("[DRONX] Carregando...")
@@ -7,25 +7,21 @@ print("[DRONX] Carregando...")
 -- ====== CONFIGURAÇÕES ======
 getgenv().DRONX = {
     AutoFarm = false,
+    AutoMaestria = false,
     AutoHeal = false,
     AutoCollect = false,
-    Maestria = false,
     TipoArma = "Sword",
     AttackSpeed = 0.3,
     MaxDistance = 1000,
     HealThreshold = 0.5,
+    -- Sliders de posição
+    posX = 0,
+    posY = 30,   -- 30 studs ACIMA por padrão
+    posZ = 0,
 }
 
 local armaEquipada = nil
-
--- ====== ILHAS ======
-local ilhas = {
-    {nome = "Port Town",         nivel = 1900, coords = CFrame.new(-290, 6, 5343)},
-    {nome = "Haunted Castle",    nivel = 2000, coords = CFrame.new(-9515, 164, 5786)},
-    {nome = "Great Tree",        nivel = 2200, coords = CFrame.new(2681, 1682, -7190)},
-    {nome = "Floating Turtle",   nivel = 2400, coords = CFrame.new(-13274, 531, -7579)},
-    {nome = "Castle on the Sea", nivel = 2600, coords = CFrame.new(-5075, 314, -3150)},
-}
+local npcAtual = nil
 
 -- ====== JOGADOR ======
 local player = game.Players.LocalPlayer
@@ -41,14 +37,11 @@ player.CharacterAdded:Connect(function(char)
     print("[DRONX] Respawnou.")
 end)
 
-local npcAtual = nil
-
--- ====== HOOK DO COMBAT FRAMEWORK (baseado no Byte Hub) ======
+-- ====== HOOK DO COMBAT FRAMEWORK (Byte Hub) ======
 local plr = game.Players.LocalPlayer
 local CbFw = nil
 local CbFw2 = nil
 
--- Tenta pegar o CombatFramework (vários caminhos)
 local caminhos = {
     function() return plr.PlayerScripts:WaitForChild("CombatFramework", 3) end,
     function() return plr.PlayerScripts:FindFirstChild("CombatFramework") end,
@@ -68,7 +61,6 @@ for _, caminho in ipairs(caminhos) do
     end)
 end
 
--- Se achou, para o CameraShaker (o Byte Hub faz isso)
 if CbFw2 then
     pcall(function()
         local CameraShaker = require(game.ReplicatedStorage.Util.CameraShaker)
@@ -79,7 +71,6 @@ else
     warn("[DRONX] ❌ Hook falhou. Vai usar clique.")
 end
 
--- Função pra pegar a arma atual
 local function GetCurrentBlade() 
     if not CbFw2 or not CbFw2.activeController then return end
     local p13 = CbFw2.activeController
@@ -91,17 +82,20 @@ local function GetCurrentBlade()
     return ret
 end
 
--- ====== ATAQUE (hook do Byte Hub) ======
+-- ====== ATAQUE (hook do Byte Hub com hitbox gigante) ======
 local function atacarRapido()
-    -- Se tem hook, usa o ataque rápido
     if CbFw2 and CbFw2.activeController then
         local ok = pcall(function()
             local AC = CbFw2.activeController
+            AC.attacking = false
+            AC.timeToNextAttack = 0
+            AC.hitboxMagnitude = 120  -- 🔥 alcance de 120 studs
+
             for i = 1, 1 do
                 local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
                     plr.Character,
                     {plr.Character.HumanoidRootPart},
-                    60
+                    120
                 )
                 local cac = {}
                 local hash = {}
@@ -145,7 +139,7 @@ local function atacarRapido()
         if ok then return end
     end
     
-    -- Fallback: clique (se o hook falhar)
+    -- Fallback
     pcall(function()
         if mouse1click then
             mouse1click()
@@ -153,23 +147,16 @@ local function atacarRapido()
             mouse1press()
             task.wait(0.05)
             mouse1release()
-        else
-            game:GetService("VirtualUser"):CaptureController()
-            game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
-            task.wait(0.05)
-            game:GetService("VirtualUser"):Button1Up(Vector2.new(1280, 672))
         end
     end)
 end
 
--- ====== EQUIPAR ARMA ======
--- Função auxiliar pra pegar stat
+-- ====== STATS ======
 local function getStat(nome)
     local stats = player.Data:FindFirstChild("Stats")
     if not stats then return 0 end
     local stat = stats:FindFirstChild(nome)
     if not stat then return 0 end
-    -- Stats agora é Folder com Level dentro
     if stat:IsA("Folder") then
         local level = stat:FindFirstChild("Level")
         return level and level.Value or 0
@@ -178,10 +165,12 @@ local function getStat(nome)
     return 0
 end
 
-local function equiparArma()
+-- ====== EQUIPAR ARMA ======
+local function equiparArma(tipoForcado)
     pcall(function()
-        local tipo = getgenv().DRONX.TipoArma or "Sword"
+        local tipo = tipoForcado or getgenv().DRONX.TipoArma or "Sword"
         
+        -- Verifica stats
         local nomes = {
             ["Sword"] = "Sword",
             ["Melee"] = "Melee",
@@ -192,10 +181,8 @@ local function equiparArma()
         local statNome = nomes[tipo] or tipo
         local pontos = getStat(statNome)
         
-        -- Se nível for <= 1, considera que não tem stat (level 1 é o inicial)
-        if pontos <= 1 then
+        if pontos <= 1 and tipo ~= "Melee" then
             tipo = "Melee"
-            warn("[DRONX] Sem stats em " .. statNome .. " (level " .. pontos .. "). Usando Melee.")
         end
         
         local armaAtual = player.Character:FindFirstChildOfClass("Tool")
@@ -228,11 +215,9 @@ local function getClosestNPC()
     if not enemiesFolder then return nil end
 
     for _, npc in pairs(enemiesFolder:GetChildren()) do
-        -- 🔥 Verificações extras
         if npc:IsA("Model") and not npc.Name:lower():find("brigade") and not npc.Name:lower():find("boat") then
             local hum = npc:FindFirstChildOfClass("Humanoid")
             local hrp = npc:FindFirstChild("HumanoidRootPart")
-            -- 🔥 Só aceita se for Humanoid DE VERDADE
             if hum and hum:IsA("Humanoid") and hum.Health > 0 and hrp then
                 local dist = (rootPart.Position - hrp.Position).Magnitude
                 if dist < minDist and dist <= getgenv().DRONX.MaxDistance then
@@ -244,6 +229,7 @@ local function getClosestNPC()
     end
     return closest
 end
+
 -- ====== ATACAR NPC ======
 local function attackNPC(npc)
     if not npc or not npc.Parent then return end
@@ -251,8 +237,12 @@ local function attackNPC(npc)
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
-    -- 🔥 Teleporta PRA CIMA (3 studs de altura pra não bugar)
-    rootPart.CFrame = hrp.CFrame * CFrame.new(0, 3, 0)
+    -- 🔥 Teleporta pra posição escolhida nos sliders
+    local posX = getgenv().DRONX.posX or 0
+    local posY = getgenv().DRONX.posY or 30
+    local posZ = getgenv().DRONX.posZ or 0
+    
+    rootPart.CFrame = hrp.CFrame * CFrame.new(posX, posY, posZ)
 
     -- 🔥 Prende o NPC embaixo de você
     pcall(function()
@@ -260,19 +250,43 @@ local function attackNPC(npc)
         hum.JumpPower = 0
         hrp.CanCollide = false
         hrp.Size = Vector3.new(60, 60, 60)
-        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -3, 0)
+        hrp.CFrame = rootPart.CFrame * CFrame.new(-posX, -posY, -posZ)
     end)
 
-    -- 🔥 Equipa arma escolhida
-    equiparArma()
+    -- 🔥 Equipa arma baseado no modo:
+    if getgenv().DRONX.AutoFarm then
+        equiparArma("Melee")  -- Auto Farm = soco
+    elseif getgenv().DRONX.AutoMaestria then
+        equiparArma()         -- Auto Maestria = arma escolhida
+    end
+    
     autoHaki()
 
-    -- 🔥 Ataca 5 vezes por ciclo (mais dano)
+    -- 🔥 Ataca 5 vezes
     for i = 1, 5 do
         atacarRapido()
         task.wait(0.05)
     end
 end
+
+-- ====== BODYCLIP (flutuar, não cai) ======
+local function atualizarBodyClip()
+    pcall(function()
+        if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
+            if not player.Character.HumanoidRootPart:FindFirstChild("BodyClip") then
+                local Noclip = Instance.new("BodyVelocity")
+                Noclip.Name = "BodyClip"
+                Noclip.Parent = player.Character.HumanoidRootPart
+                Noclip.MaxForce = Vector3.new(100000, 100000, 100000)
+                Noclip.Velocity = Vector3.new(0, 0, 0)
+            end
+        else
+            local bc = player.Character.HumanoidRootPart:FindFirstChild("BodyClip")
+            if bc then bc:Destroy() end
+        end
+    end)
+end
+
 -- ====== CURA ======
 local function autoHeal()
     if not humanoid or humanoid.Health <= 0 then return end
@@ -326,27 +340,15 @@ local function autoCollect()
     end
 end
 
--- ====== TROCAR ILHA ======
-local function trocarIlha()
-    local nivel = player.Data.Level.Value
-    local melhorIlha = nil
-    for _, ilha in ipairs(ilhas) do
-        if nivel >= ilha.nivel then melhorIlha = ilha end
-    end
-    if melhorIlha then
-        rootPart.CFrame = melhorIlha.coords
-        print("[DRONX] Indo para " .. melhorIlha.nome)
-        task.wait(2)
-    end
-end
-
 -- ====== LOOP PRINCIPAL ======
 coroutine.wrap(function()
-    local semNPC = 0
     while true do
         task.wait(0.3)
 
-        if getgenv().DRONX.AutoFarm or getgenv().DRONX.Maestria then
+        -- Atualiza BodyClip
+        atualizarBodyClip()
+
+        if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
             if character and character.Parent and humanoid and humanoid.Health > 0 then
                 if getgenv().DRONX.AutoHeal then autoHeal() end
                 if getgenv().DRONX.AutoCollect then autoCollect() end
@@ -358,21 +360,13 @@ coroutine.wrap(function()
                 end
 
                 if npcValido then
-                    semNPC = 0
                     attackNPC(npcAtual)
                 else
                     npcAtual = nil
                     local novo = getClosestNPC()
                     if novo then
-                        semNPC = 0
                         npcAtual = novo
                         attackNPC(novo)
-                    else
-                        semNPC = semNPC + 1
-                        if semNPC >= 30 then
-                            trocarIlha()
-                            semNPC = 0
-                        end
                     end
                 end
             else
@@ -387,7 +381,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 
 local Window = Fluent:CreateWindow({
     Title = "DRONX HUB",
-    SubTitle = "v3.3",
+    SubTitle = "v4.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(500, 320),
     Theme = "Dark"
@@ -398,29 +392,25 @@ local Tabs = {
     Config = Window:AddTab({ Title = "Config", Icon = "settings" })
 }
 
+-- AUTO FARM (soco)
 Tabs.Main:AddToggle("AutoFarm", {
-    Title = "Auto Farm",
+    Title = "Auto Farm (Soco)",
     Default = false,
     Callback = function(v)
         getgenv().DRONX.AutoFarm = v
-        Fluent:Notify({
-            Title = "DRONX",
-            Content = v and "Farm ATIVADO!" or "Farm DESATIVADO",
-            Duration = 3
-        })
+        if v then getgenv().DRONX.AutoMaestria = false end
+        Fluent:Notify({Title = "DRONX", Content = v and "Auto Farm ATIVADO!" or "Auto Farm DESATIVADO", Duration = 3})
     end
 })
 
-Tabs.Main:AddToggle("Maestria", {
-    Title = "Farm Maestria",
+-- AUTO MAESTRIA
+Tabs.Main:AddToggle("AutoMaestria", {
+    Title = "Auto Maestria",
     Default = false,
     Callback = function(v)
-        getgenv().DRONX.Maestria = v
-        Fluent:Notify({
-            Title = "DRONX",
-            Content = v and "Maestria ATIVADA!" or "Maestria DESATIVADA",
-            Duration = 3
-        })
+        getgenv().DRONX.AutoMaestria = v
+        if v then getgenv().DRONX.AutoFarm = false end
+        Fluent:Notify({Title = "DRONX", Content = v and "Auto Maestria ATIVADA!" or "Auto Maestria DESATIVADA", Duration = 3})
     end
 })
 
@@ -431,11 +421,6 @@ Tabs.Main:AddDropdown("TipoArma", {
     Callback = function(v)
         getgenv().DRONX.TipoArma = v
         armaEquipada = nil
-        Fluent:Notify({
-            Title = "DRONX",
-            Content = "Arma: " .. v,
-            Duration = 2
-        })
     end
 })
 
@@ -451,6 +436,28 @@ Tabs.Main:AddToggle("AutoHeal", {
     Callback = function(v) getgenv().DRONX.AutoHeal = v end
 })
 
+-- ====== SLIDERS DE POSIÇÃO ======
+Tabs.Config:AddParagraph({Title = "Posição em relação ao NPC", Content = "Ajuste onde seu boneco fica"})
+
+Tabs.Config:AddSlider("SliderX", {
+    Title = "Posição X (Lado)",
+    Default = 0, Min = -30, Max = 30, Rounding = 1,
+    Callback = function(v) getgenv().DRONX.posX = v end
+})
+
+Tabs.Config:AddSlider("SliderY", {
+    Title = "Posição Y (Altura)",
+    Default = 30, Min = 0, Max = 60, Rounding = 1,
+    Callback = function(v) getgenv().DRONX.posY = v end
+})
+
+Tabs.Config:AddSlider("SliderZ", {
+    Title = "Posição Z (Frente/Trás)",
+    Default = 0, Min = -30, Max = 30, Rounding = 1,
+    Callback = function(v) getgenv().DRONX.posZ = v end
+})
+
+-- Status
 local StatusLabel = Tabs.Config:AddParagraph({
     Title = "Status",
     Content = "Carregando..."
@@ -468,8 +475,6 @@ coroutine.wrap(function()
         end)
     end
 end)()
-
-print("[DRONX] Carregado com sucesso!")
 
 -- ====== BOTÃO FLUTUANTE ======
 local screenGuiBtn = Instance.new("ScreenGui")
@@ -504,10 +509,7 @@ local function encontrarFluent()
     local function procurar(pai)
         for _, gui in pairs(pai:GetChildren()) do
             if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
-                if gui.Name:lower():find("fluent") 
-                or gui.Name:lower():find("dawid") 
-                or gui:FindFirstChild("Main") 
-                or gui:FindFirstChild("Fluent") then
+                if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") then
                     return gui
                 end
             end
@@ -538,4 +540,4 @@ toggleBtn.MouseButton1Click:Connect(function()
     toggleBtn.BackgroundColor3 = guiAberta and Color3.fromRGB(25, 25, 35) or Color3.fromRGB(50, 0, 0)
 end)
 
-print("[DRONX] Botão flutuante criado!")
+print("[DRONX] Carregado com sucesso!")
