@@ -167,9 +167,11 @@ local function attackNPC(npc)
     autoHaki()
 
     for i = 1, 20 do
-        atacarRapido(npc)  -- 🔥 passa o NPC
+        atacarRapido(npc)
         task.wait(0.1)
     end
+end
+
 -- ====== BODYCLIP ======
 local function atualizarBodyClip()
     pcall(function()
