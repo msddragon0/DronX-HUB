@@ -373,15 +373,152 @@ coroutine.wrap(function()
     end
 end)()
 
--- ====== BOTÃO FLUTUANTE ======
+-- ====== BOTÃO FLUTUANTE + MINIMIZAR (estilo Kavo) ======
 local screenGuiBtn = Instance.new("ScreenGui")
 screenGuiBtn.Name = "DRONX_BotaoFlutuante"
 screenGuiBtn.ResetOnSpawn = false
 screenGuiBtn.Parent = game:GetService("CoreGui") or game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
+-- 🔥 Ícone de 3 pontinhos (estilo Kavo)
+local floatingToggle = Instance.new("Frame")
+floatingToggle.Size = UDim2.new(0, 45, 0, 45)
+floatingToggle.Position = UDim2.new(0, 20, 0.5, -22)
+floatingToggle.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+floatingToggle.Visible = false
+floatingToggle.ZIndex = 999
+floatingToggle.Active = true
+floatingToggle.Draggable = true
+floatingToggle.Parent = screenGuiBtn
+
+local cornerBtn = Instance.new("UICorner")
+cornerBtn.CornerRadius = UDim.new(1, 0)
+cornerBtn.Parent = floatingToggle
+
+local strokeBtn = Instance.new("UIStroke")
+strokeBtn.Color = Color3.fromRGB(255, 215, 0)
+strokeBtn.Thickness = 2
+strokeBtn.Parent = floatingToggle
+
+-- Layout dos 3 pontinhos
+local dotLayout = Instance.new("UIListLayout")
+dotLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+dotLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+dotLayout.Padding = UDim.new(0, 4)
+dotLayout.Parent = floatingToggle
+
+-- Cria 3 pontinhos
+for i = 1, 3 do
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 5, 0, 5)
+    dot.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+    dot.BorderSizePixel = 0
+    dot.Parent = floatingToggle
+    
+    local dotCorner = Instance.new("UICorner")
+    dotCorner.CornerRadius = UDim.new(1, 0)
+    dotCorner.Parent = dot
+end
+
+-- 🔥 Botão pra restaurar (clicar no ícone)
+local function restaurarJanela()
+    if fluentGui and fluentGui.Parent then
+        fluentGui.Enabled = true
+    end
+    pcall(function()
+        Window:Show()
+    end)
+    floatingToggle.Visible = false
+end
+
+local startPos
+floatingToggle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        startPos = input.Position
+    end
+end)
+
+floatingToggle.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if startPos then
+            local endPos = input.Position
+            -- Só restaura se foi um clique (não arrasto)
+            if (startPos - endPos).Magnitude < 10 then
+                restaurarJanela()
+            end
+            startPos = nil
+        end
+    end
+end)
+
+-- 🔥 Botão de minimizar DENTRO do Fluent (adicionado via código)
+local function adicionarBotaoMinimizar()
+    -- Procura a janela do Fluent
+    local fluentFrame = nil
+    for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+        if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
+            for _, v in pairs(gui:GetDescendants()) do
+                -- Procura o frame principal (aquele com botão de fechar)
+                if v:IsA("TextButton") and (v.Text == "X" or v.Name == "Close") then
+                    fluentFrame = v.Parent
+                    break
+                end
+            end
+            if fluentFrame then break end
+        end
+    end
+    
+    if not fluentFrame then
+        warn("[DRONX] Não achei o botão de fechar do Fluent")
+        return
+    end
+    
+    print("[DRONX] ✅ Achei a janela do Fluent!")
+    
+    -- Cria o botão de minimizar ao lado do fechar
+    local minimizeBtn = Instance.new("TextButton")
+    minimizeBtn.Name = "DRONX_Minimize"
+    minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
+    minimizeBtn.Position = UDim2.new(1, -65, 0.5, -12)
+    minimizeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    minimizeBtn.Text = "—"
+    minimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    minimizeBtn.TextSize = 18
+    minimizeBtn.Font = Enum.Font.GothamBold
+    minimizeBtn.BorderSizePixel = 0
+    minimizeBtn.ZIndex = 999
+    minimizeBtn.Parent = fluentFrame
+    
+    local minimizeCorner = Instance.new("UICorner")
+    minimizeCorner.CornerRadius = UDim.new(0, 6)
+    minimizeCorner.Parent = minimizeBtn
+    
+    minimizeBtn.MouseButton1Click:Connect(function()
+        print("[DRONX] Minimizando...")
+        pcall(function()
+            Window:Hide()
+        end)
+        if fluentGui and fluentGui.Parent then
+            fluentGui.Enabled = false
+        end
+        task.wait(0.1)
+        floatingToggle.Visible = true
+    end)
+end
+
+-- Tenta adicionar o botão minimizar (com delay)
+task.wait(1)
+pcall(adicionarBotaoMinimizar)
+
+-- Se falhar, tenta de novo depois
+if not getgenv().DRONX_MinimizeOK then
+    task.wait(2)
+    pcall(adicionarBotaoMinimizar)
+end
+
+-- ====== BOTÃO DO CANTO ESQUERDO (mantém pra abrir/fechar tbm) ======
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(0, 45, 0, 45)
-toggleBtn.Position = UDim2.new(0, 20, 0.5, -22)
+toggleBtn.Position = UDim2.new(0, 80, 0.5, -22)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 toggleBtn.Text = "◀"
 toggleBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
@@ -391,14 +528,14 @@ toggleBtn.BorderSizePixel = 0
 toggleBtn.Draggable = true
 toggleBtn.Parent = screenGuiBtn
 
-local cornerBtn = Instance.new("UICorner")
-cornerBtn.CornerRadius = UDim.new(1, 0)
-cornerBtn.Parent = toggleBtn
+local cornerBtn2 = Instance.new("UICorner")
+cornerBtn2.CornerRadius = UDim.new(1, 0)
+cornerBtn2.Parent = toggleBtn
 
-local strokeBtn = Instance.new("UIStroke")
-strokeBtn.Color = Color3.fromRGB(255, 215, 0)
-strokeBtn.Thickness = 2
-strokeBtn.Parent = toggleBtn
+local strokeBtn2 = Instance.new("UIStroke")
+strokeBtn2.Color = Color3.fromRGB(255, 215, 0)
+strokeBtn2.Thickness = 2
+strokeBtn2.Parent = toggleBtn
 
 local guiAberta = true
 
@@ -438,3 +575,4 @@ toggleBtn.MouseButton1Click:Connect(function()
 end)
 
 print("[DRONX] Carregado com sucesso!")
+print("[DRONX] Se aparecer 3 pontinhos = minimize. Clique neles pra restaurar.")
