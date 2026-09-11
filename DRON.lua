@@ -419,6 +419,27 @@ for i = 1, 3 do
     dotCorner.Parent = dot
 end
 
+-- Declara fluentGui PRIMEIRO
+local function encontrarFluent()
+    local function procurar(pai)
+        for _, gui in pairs(pai:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
+                if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") then
+                    return gui
+                end
+            end
+        end
+        return nil
+    end
+    return procurar(game:GetService("CoreGui")) or procurar(game.Players.LocalPlayer.PlayerGui)
+end
+
+local fluentGui = encontrarFluent()
+if not fluentGui then
+    task.wait(2)
+    fluentGui = encontrarFluent()
+end
+
 -- 🔥 Botão pra restaurar (clicar no ícone)
 local function restaurarJanela()
     if fluentGui and fluentGui.Parent then
@@ -538,26 +559,6 @@ strokeBtn2.Thickness = 2
 strokeBtn2.Parent = toggleBtn
 
 local guiAberta = true
-
-local function encontrarFluent()
-    local function procurar(pai)
-        for _, gui in pairs(pai:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
-                if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") then
-                    return gui
-                end
-            end
-        end
-        return nil
-    end
-    return procurar(game:GetService("CoreGui")) or procurar(game.Players.LocalPlayer.PlayerGui)
-end
-
-local fluentGui = encontrarFluent()
-if not fluentGui then
-    task.wait(2)
-    fluentGui = encontrarFluent()
-end
 
 toggleBtn.MouseButton1Click:Connect(function()
     guiAberta = not guiAberta
