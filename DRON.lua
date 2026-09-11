@@ -89,14 +89,15 @@ local function atacarRapido()
             local AC = CbFw2.activeController
             AC.attacking = false
             AC.timeToNextAttack = 0
-            AC.hitboxMagnitude = 120  -- 🔥 alcance de 120 studs
+            AC.hitboxMagnitude = 200  -- 🔥 ERA 120, AGORA 200
 
             for i = 1, 1 do
                 local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
                     plr.Character,
                     {plr.Character.HumanoidRootPart},
-                    120
+                    200  -- 🔥 ERA 120, AGORA 200
                 )
+                -- ... (resto igual)
                 local cac = {}
                 local hash = {}
                 for k, v in pairs(bladehit) do
