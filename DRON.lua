@@ -47,6 +47,23 @@ local npcAtual = nil
 -- ====== JOGADOR ======
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
+
+-- ====== AUMENTAR HITBOX DE ATAQUE (Range) ======
+local CbFw = require(game.Players.LocalPlayer.PlayerScripts:WaitForChild("CombatFramework", 5))
+local CbFw2 = debug.getupvalues(CbFw)[2]
+
+-- Loop para forçar a hitbox gigante
+task.spawn(function()
+    while task.wait(0.1) do
+        pcall(function()
+            if CbFw2 and CbFw2.activeController then
+                -- 🔥 Aumenta a hitbox para 200 studs (era 60)
+                CbFw2.activeController.hitboxMagnitude = 200
+            end
+        end)
+    end
+end)
+
 local rootPart = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 
