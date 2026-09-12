@@ -4,6 +4,29 @@
 
 print("[DRONX] Carregando...")
 
+-- ====== CAPTURA DO REGISTER ATTACK ======
+getgenv().DRONX_REMOTES = getgenv().DRONX_REMOTES or {}
+
+pcall(function()
+    local mt = getrawmetatable(game)
+    local oldNamecall = mt.__namecall
+    setreadonly(mt, false)
+    
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if method == "FireServer" or method == "InvokeServer" then
+            local nome = ""
+            pcall(function() nome = self.Name end)
+            if nome and nome:lower():find("registerattack") then
+                getgenv().DRONX_REMOTES.RegisterAttack = self
+            end
+        end
+        return oldNamecall(self, ...)
+    end)
+end)
+
+print("[DRONX] Capturador de RegisterAttack instalado.")
+
 -- ====== CONFIGURAÇÕES ======
 getgenv().DRONX = {
     AutoFarm = false,
@@ -43,21 +66,7 @@ pcall(function()
     local CF = plr.PlayerScripts:FindFirstChild("CombatFramework")
     if CF then CbFw2 = debug.getupvalues(require(CF))[2] end
 end)
-
-if not CbFw2 then
-    pcall(function()
-        local CF = game.ReplicatedStorage:FindFirstChild("CombatFramework")
-        if CF then CbFw2 = debug.getupvalues(require(CF))[2] end
-    end)
-end
-
-if not CbFw2 then
-    pcall(function()
-        local CF = game.ReplicatedStorage.Controllers:FindFirstChild("CombatController")
-        if CF then CbFw2 = debug.getupvalues(require(CF))[2] end
-    end)
-end
-
+...
 if CbFw2 then
     print("[DRONX] ✅ Hook carregado!")
 else
@@ -65,25 +74,23 @@ else
 end
 
 local function GetCurrentBlade() 
-    if not CbFw2 or not CbFw2.activeController then return end
-    local p13 = CbFw2.activeController
-    local ret = p13.blades[1]
-    if not ret then return end
-    while ret.Parent ~= game.Players.LocalPlayer.Character do 
-        ret = ret.Parent 
-    end
-    return ret
+    ...
 end
 
--- ====== ATAQUE (olha pro NPC e clica) ======
+-- ====== ATAQUE (RegisterAttack - sem mouse) ======
 local function atacarRapido(npc)
     pcall(function()
+        -- Olha pro NPC
         if npc and npc.Parent and npc:FindFirstChild("HumanoidRootPart") then
             local hrp = npc.HumanoidRootPart
             local direcao = (hrp.Position - rootPart.Position).Unit
             rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + direcao)
         end
-        mouse1click()
+        
+        -- 🔥 Dispara RegisterAttack direto
+        if getgenv().DRONX_REMOTES and getgenv().DRONX_REMOTES.RegisterAttack then
+            getgenv().DRONX_REMOTES.RegisterAttack:FireServer(0.4, 1, nil)
+        end
     end)
 end
 
