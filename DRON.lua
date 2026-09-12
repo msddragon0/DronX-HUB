@@ -58,19 +58,24 @@ player.CharacterAdded:Connect(function(char)
     print("[DRONX] Respawnou.")
 end)
 
--- ====== ATAQUE (RegisterAttack - sem mouse) ======
+-- ====== ATAQUE (mira no NPC + dispara RegisterAttack) ======
 local function atacarRapido(npc)
     pcall(function()
-        -- Olha pro NPC
+        -- 🔥 MIRA NO NPC (faz o personagem olhar exatamente pra ele)
         if npc and npc.Parent and npc:FindFirstChild("HumanoidRootPart") then
             local hrp = npc.HumanoidRootPart
-            local direcao = (hrp.Position - rootPart.Position).Unit
-            rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + direcao)
+            -- Olha direto pro NPC
+            rootPart.CFrame = CFrame.new(rootPart.Position, hrp.Position)
         end
         
-        -- 🔥 Dispara RegisterAttack direto
+        -- 🔥 Dispara RegisterAttack (ativa ataque)
         if getgenv().DRONX_REMOTES and getgenv().DRONX_REMOTES.RegisterAttack then
             getgenv().DRONX_REMOTES.RegisterAttack:FireServer(0.4, 1, nil)
+        end
+        
+        -- 🔥 Também tenta o ataque normal (backup)
+        if mouse1click then
+            mouse1click()
         end
     end)
 end
@@ -132,7 +137,7 @@ local function attackNPC(npc)
     if not hum or hum.Health <= 0 or not hrp then return end
 
     local posX = getgenv().DRONX.posX or 0
-    local posY = getgenv().DRONX.posY or 15
+    local posY = getgenv().DRONX.posY or 3
     local posZ = getgenv().DRONX.posZ or 0
     
     rootPart.CFrame = hrp.CFrame * CFrame.new(posX, posY, posZ)
