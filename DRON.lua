@@ -419,7 +419,7 @@ local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(0, 50, 0, 50)
 toggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-toggleBtn.Text = "▶"
+toggleBtn.Text = "◀"
 toggleBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
 toggleBtn.TextSize = 24
 toggleBtn.Font = Enum.Font.GothamBold
@@ -437,7 +437,7 @@ s.Thickness = 2
 s.Parent = toggleBtn
 
 -- 🔥 Toggle
-local aberta = true
+local aberta = false
 toggleBtn.MouseButton1Click:Connect(function()
     aberta = not aberta
     local gui = getFluentGui()
