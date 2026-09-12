@@ -234,16 +234,18 @@ local function getClosestNPC()
     return closest
 end
 
-local function atacarRapido(npc)
-    pcall(function()
-        if npc and npc.Parent and npc:FindFirstChild("HumanoidRootPart") then
-            local alvo = CFrame.lookAt(rootPart.Position, npc.HumanoidRootPart.Position)
-            rootPart.CFrame = rootPart.CFrame:Lerp(alvo, 0.5)
-        end
-        if getgenv().DRONX_REMOTES and getgenv().DRONX_REMOTES.RegisterAttack then
-            getgenv().DRONX_REMOTES.RegisterAttack:FireServer(0.4, 1, nil)
-        end
-    end)
+-- Substitua sua função de ataque por algo mais "suave"
+local function atacarSuave(npc)
+    if not npc or not npc:FindFirstChild("HumanoidRootPart") then return end
+    
+    local targetPos = npc.HumanoidRootPart.Position
+    -- Usa Lerp para mover o personagem suavemente, simulando movimento humano
+    rootPart.CFrame = rootPart.CFrame:Lerp(CFrame.new(rootPart.Position, targetPos), 0.2)
+    
+    -- Simula o clique do mouse/ataque de forma randômica para evitar padrões fixos
+    if math.random(1, 10) > 3 then 
+        atacarRapido(npc)
+    end
 end
 
 local function equiparArma(tipo)
@@ -429,15 +431,21 @@ local function fogRemover()
 end
 
 -- ====== LOOP PRINCIPAL ======
+-- Exemplo de separação para evitar gargalos
 task.spawn(function()
-    while task.wait(0.3) do
-        -- Auto Quest
-        if getgenv().DRONX.AutoQuest then pcall(autoQuest) end
-
-        -- Bring Mob
-        if getgenv().DRONX.BringMob and (getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria) then
-            bringMob()
+    while task.wait() do -- Loop de alta frequência para combate
+        if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
+            -- Lógica de combate aqui
         end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do -- Loop de baixa frequência para utilitários
+        if getgenv().DRONX.AutoQuest then pcall(autoQuest) end
+        if getgenv().DRONX.AutoChest then autoChest() end
+    end
+end)
 
         -- Auto Chest
         if getgenv().DRONX.AutoChest then autoChest() end
