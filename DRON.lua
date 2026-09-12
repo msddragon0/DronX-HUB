@@ -165,6 +165,10 @@ local function attackNPC(npc)
     end
 end
 
+    -- 🔥 Força um ataque extra depois
+    task.wait(0.1)
+    atacarRapido(npc)
+
 -- ====== BODYCLIP ======
 local function atualizarBodyClip()
     pcall(function()
