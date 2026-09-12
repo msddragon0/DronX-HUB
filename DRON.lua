@@ -210,19 +210,49 @@ local function matarNPC(npc)
     end)
 end
 
+-- 🔥 TRAVA NO AR (BodyClip)
+local function atualizarBodyClip()
+    pcall(function()
+        if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria or getgenv().DRONX.AutoBoss then
+            if not character.HumanoidRootPart:FindFirstChild("BodyClip") then
+                local bv = Instance.new("BodyVelocity")
+                bv.Name = "BodyClip"
+                bv.Parent = character.HumanoidRootPart
+                bv.MaxForce = Vector3.new(100000, 100000, 100000)
+                bv.Velocity = Vector3.new(0, 0, 0)
+            end
+        else
+            local bc = character.HumanoidRootPart:FindFirstChild("BodyClip")
+            if bc then bc:Destroy() end
+        end
+    end)
+end
+
 local function attackNPC(npc)
     if not npc or not npc.Parent then return end
     local hum = npc:FindFirstChildOfClass("Humanoid")
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
+    -- 🔥 Trava no ar ANTES de teleportar
+    atualizarBodyClip()
+
+    -- 🔥 Teleporta EM CIMA do NPC
     rootPart.CFrame = hrp.CFrame * CFrame.new(0, getgenv().DRONX.posY, 0)
+
+    -- 🔥 Prende o NPC EMBAIXO de você
     pcall(function()
         hum.WalkSpeed = 0
         hum.JumpPower = 0
         hrp.CanCollide = false
         hrp.Size = Vector3.new(60, 60, 60)
         hrp.CFrame = rootPart.CFrame * CFrame.new(0, -getgenv().DRONX.posY, 0)
+    end)
+
+    -- 🔥 Re-trava no ar (garante)
+    pcall(function()
+        local bv = character.HumanoidRootPart:FindFirstChild("BodyClip")
+        if bv then bv.Velocity = Vector3.new(0, 0, 0) end
     end)
 
     if getgenv().DRONX.AutoFarm then equiparArma("Melee") else equiparArma() end
