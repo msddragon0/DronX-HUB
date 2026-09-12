@@ -90,6 +90,19 @@ local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
+-- 🔥 AUMENTA HITBOX (ataque de longe)
+pcall(function()
+    local CC = require(game.ReplicatedStorage.Controllers.CombatController)
+    task.spawn(function()
+        while task.wait(0.1) do
+            pcall(function()
+                if CC and CC.activeController then
+                    CC.activeController.hitboxMagnitude = 500  -- 🔥 500 studs
+                end
+            end)
+        end
+    end)
+end)
 local npcAtual = nil
 local aberta = false
 local toggleBtn = nil
@@ -288,32 +301,33 @@ local function attackNPC(npc)
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     if not hum or hum.Health <= 0 or not hrp then return end
 
-    -- 🔥 Trava no ar ANTES de teleportar
-    atualizarBodyClip()
+    -- 🔥 Fica 8 studs AO LADO (não em cima)
+    local npcPos = hrp.Position
+    local minhaPos = npcPos + Vector3.new(0, getgenv().DRONX.posY, 8)
+    rootPart.CFrame = CFrame.new(minhaPos, npcPos)
+    rootPart.Velocity = Vector3.new(0, 0, 0)
+    rootPart.RotVelocity = Vector3.new(0, 0, 0)
 
-    -- 🔥 Teleporta EM CIMA do NPC
-    rootPart.CFrame = hrp.CFrame * CFrame.new(0, getgenv().DRONX.posY, 0)
+    -- 🔥 Trava o boneco (não sobe, não cai)
+    pcall(function()
+        humanoid.PlatformStand = true
+    end)
 
-    -- 🔥 Prende o NPC EMBAIXO de você
+    -- 🔥 Prende o NPC embaixo
     pcall(function()
         hum.WalkSpeed = 0
         hum.JumpPower = 0
         hrp.CanCollide = false
         hrp.Size = Vector3.new(60, 60, 60)
-        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -getgenv().DRONX.posY, 0)
-    end)
-
-    -- 🔥 Re-trava no ar (garante)
-    pcall(function()
-        local bv = character.HumanoidRootPart:FindFirstChild("BodyClip")
-        if bv then bv.Velocity = Vector3.new(0, 0, 0) end
+        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -getgenv().DRONX.posY, -8)
     end)
 
     if getgenv().DRONX.AutoFarm then equiparArma("Melee") else equiparArma() end
-    task.wait(0.2)
+    task.wait(0.15)
     autoHaki()
 
-    for i = 1, 10 do
+    -- 🔥 Ataca 15x por ciclo
+    for i = 1, 15 do
         atacarRapido(npc)
         task.wait(0.08)
     end
@@ -380,17 +394,29 @@ end
 local function autoQuest()
     local q = getQuestForLevel()
     if not q then return end
+    
+    -- 🔥 Pega o título da quest atual
     local titulo = ""
     pcall(function()
-        local cont = player.PlayerGui.Main.Quest.Container
-        titulo = cont.QuestTitle.Title.Text
+        titulo = player.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
     end)
-    if not titulo:find(q.mon) then
-        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AbandonQuest")
-        rootPart.CFrame = q.questPos
-        task.wait(1)
-        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", q.quest, q.qlvl)
+    
+    -- 🔥 Se JÁ tem a quest do NPC certo, não faz NADA
+    if titulo:find(q.mon) then
+        return
     end
+    
+    -- 🔥 Se tá muito longe do NPC, teleporta
+    if (q.questPos.Position - rootPart.Position).Magnitude > 10 then
+        rootPart.CFrame = q.questPos
+        task.wait(0.5)
+    end
+    
+    -- 🔥 Abandona a antiga e pega nova
+    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AbandonQuest")
+    task.wait(0.3)
+    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", q.quest, q.qlvl)
+    print("[DRONX] Quest nova: " .. q.mon)
 end
 
 local function fogRemover()
