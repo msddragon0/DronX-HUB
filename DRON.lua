@@ -64,25 +64,25 @@ pcall(function()
     end)
 end)
 
--- ====== ATAQUE (mira no NPC + dispara RegisterAttack) ======
+-- ====== ATAQUE (VirtualUser - não clica em tudo) ======
 local function atacarRapido(npc)
     pcall(function()
-        -- 🔥 MIRA NO NPC (faz o personagem olhar exatamente pra ele)
+        -- Olha pro NPC
         if npc and npc.Parent and npc:FindFirstChild("HumanoidRootPart") then
             local hrp = npc.HumanoidRootPart
-            -- Olha direto pro NPC
             rootPart.CFrame = CFrame.new(rootPart.Position, hrp.Position)
         end
         
-        -- 🔥 Dispara RegisterAttack (ativa ataque)
+        -- RegisterAttack (ativa animação)
         if getgenv().DRONX_REMOTES and getgenv().DRONX_REMOTES.RegisterAttack then
             getgenv().DRONX_REMOTES.RegisterAttack:FireServer(0.4, 1, nil)
         end
         
-        -- 🔥 Também tenta o ataque normal (backup)
-        if mouse1click then
-            mouse1click()
-        end
+        -- 🔥 VirtualUser (não usa cursor real)
+        game:GetService("VirtualUser"):CaptureController()
+        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+        task.wait(0.05)
+        game:GetService("VirtualUser"):Button1Up(Vector2.new(1280, 672))
     end)
 end
 
@@ -378,10 +378,11 @@ end)()
 
 -- ====== BOTÃO FLUTUANTE + MINIMIZAR ======
 local screenGuiBtn = Instance.new("ScreenGui")
-screenGuiBtn.Name = "DRONX_BotaoFlutuante"
+screenGuiBtn.Name = "DRONX_Botao"
 screenGuiBtn.ResetOnSpawn = false
-screenGuiBtn.Parent = game:GetService("CoreGui") or game.Players.LocalPlayer:WaitForChild("PlayerGui")
+screenGuiBtn.Parent = game:GetService("CoreGui") or player:WaitForChild("PlayerGui")
 
+-- 🔥 Ícone de 3 pontinhos (aparece quando minimiza)
 local floatingToggle = Instance.new("Frame")
 floatingToggle.Size = UDim2.new(0, 45, 0, 45)
 floatingToggle.Position = UDim2.new(0, 20, 0.5, -22)
@@ -392,14 +393,14 @@ floatingToggle.Active = true
 floatingToggle.Draggable = true
 floatingToggle.Parent = screenGuiBtn
 
-local cornerBtn = Instance.new("UICorner")
-cornerBtn.CornerRadius = UDim.new(1, 0)
-cornerBtn.Parent = floatingToggle
+local c1 = Instance.new("UICorner")
+c1.CornerRadius = UDim.new(1, 0)
+c1.Parent = floatingToggle
 
-local strokeBtn = Instance.new("UIStroke")
-strokeBtn.Color = Color3.fromRGB(255, 215, 0)
-strokeBtn.Thickness = 2
-strokeBtn.Parent = floatingToggle
+local s1 = Instance.new("UIStroke")
+s1.Color = Color3.fromRGB(255, 215, 0)
+s1.Thickness = 2
+s1.Parent = floatingToggle
 
 local dotLayout = Instance.new("UIListLayout")
 dotLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -413,40 +414,38 @@ for i = 1, 3 do
     dot.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
     dot.BorderSizePixel = 0
     dot.Parent = floatingToggle
-    
-    local dotCorner = Instance.new("UICorner")
-    dotCorner.CornerRadius = UDim.new(1, 0)
-    dotCorner.Parent = dot
+    local dc = Instance.new("UICorner")
+    dc.CornerRadius = UDim.new(1, 0)
+    dc.Parent = dot
 end
 
-local function encontrarFluent()
-    local function procurar(pai)
-        for _, gui in pairs(pai:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
-                if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") then
-                    return gui
-                end
-            end
-        end
-        return nil
-    end
-    return procurar(game:GetService("CoreGui")) or procurar(game.Players.LocalPlayer.PlayerGui)
-end
+-- 🔥 Botão ◀/▶ do canto
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 45, 0, 45)
+toggleBtn.Position = UDim2.new(0, 20, 0.5, -22)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+toggleBtn.Text = "◀"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+toggleBtn.TextSize = 22
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.BorderSizePixel = 0
+toggleBtn.Draggable = true
+toggleBtn.Parent = screenGuiBtn
 
-local fluentGui = encontrarFluent()
-if not fluentGui then
-    task.wait(2)
-    fluentGui = encontrarFluent()
-end
+local c2 = Instance.new("UICorner")
+c2.CornerRadius = UDim.new(1, 0)
+c2.Parent = toggleBtn
 
-local function restaurarJanela()
-    if fluentGui and fluentGui.Parent then
-        fluentGui.Enabled = true
-    end
-    pcall(function()
-        Window:Show()
-    end)
+local s2 = Instance.new("UIStroke")
+s2.Color = Color3.fromRGB(255, 215, 0)
+s2.Thickness = 2
+s2.Parent = toggleBtn
+
+-- 🔥 Função pra restaurar (clicar no 3 pontinhos)
+local function restaurar()
+    pcall(function() Window:Show() end)
     floatingToggle.Visible = false
+    toggleBtn.Visible = true
 end
 
 local startPos
@@ -459,13 +458,62 @@ end)
 floatingToggle.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if startPos then
-            local endPos = input.Position
-            if (startPos - endPos).Magnitude < 10 then
-                restaurarJanela()
+            if (startPos - input.Position).Magnitude < 10 then
+                restaurar()
             end
             startPos = nil
         end
     end
 end)
 
+-- 🔥 Botão ◀ minimiza pra 3 pontinhos
+toggleBtn.MouseButton1Click:Connect(function()
+    pcall(function() Window:Hide() end)
+    toggleBtn.Visible = false
+    floatingToggle.Visible = true
+end)
+
+-- 🔥 Adiciona botão "—" dentro da GUI do Fluent (se conseguir achar)
+task.wait(2)
+pcall(function()
+    for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+        if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
+            for _, v in pairs(gui:GetDescendants()) do
+                if v:IsA("TextButton") and (v.Text == "X" or v.Name:lower():find("close")) then
+                    local pai = v.Parent
+                    if not pai:FindFirstChild("DRONX_Min") then
+                        local minBtn = Instance.new("TextButton")
+                        minBtn.Name = "DRONX_Min"
+                        minBtn.Size = UDim2.new(0, 25, 0, 25)
+                        minBtn.Position = UDim2.new(1, -65, 0.5, -12)
+                        minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+                        minBtn.Text = "—"
+                        minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        minBtn.TextSize = 18
+                        minBtn.Font = Enum.Font.GothamBold
+                        minBtn.BorderSizePixel = 0
+                        minBtn.ZIndex = 999
+                        minBtn.Parent = pai
+                        
+                        local mc = Instance.new("UICorner")
+                        mc.CornerRadius = UDim.new(0, 6)
+                        mc.Parent = minBtn
+                        
+                        minBtn.MouseButton1Click:Connect(function()
+                            pcall(function() Window:Hide() end)
+                            toggleBtn.Visible = false
+                            floatingToggle.Visible = true
+                        end)
+                        
+                        print("[DRONX] ✅ Botão minimizar adicionado!")
+                    end
+                    break
+                end
+            end
+            break
+        end
+    end
+end)
+
 print("[DRONX] Carregado com sucesso!")
+print("[DRONX] Minimiza clicando no ◀ (vira 3 pontinhos).")
