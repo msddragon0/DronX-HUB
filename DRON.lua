@@ -376,144 +376,59 @@ coroutine.wrap(function()
     end
 end)()
 
--- ====== BOTÃO FLUTUANTE + MINIMIZAR ======
+-- ====== BOTÃO FLUTUANTE (funcional) ======
 local screenGuiBtn = Instance.new("ScreenGui")
 screenGuiBtn.Name = "DRONX_Botao"
 screenGuiBtn.ResetOnSpawn = false
 screenGuiBtn.Parent = game:GetService("CoreGui") or player:WaitForChild("PlayerGui")
 
--- 🔥 Ícone de 3 pontinhos (aparece quando minimiza)
-local floatingToggle = Instance.new("Frame")
-floatingToggle.Size = UDim2.new(0, 45, 0, 45)
-floatingToggle.Position = UDim2.new(0, 20, 0.5, -22)
-floatingToggle.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-floatingToggle.Visible = false
-floatingToggle.ZIndex = 999
-floatingToggle.Active = true
-floatingToggle.Draggable = true
-floatingToggle.Parent = screenGuiBtn
-
-local c1 = Instance.new("UICorner")
-c1.CornerRadius = UDim.new(1, 0)
-c1.Parent = floatingToggle
-
-local s1 = Instance.new("UIStroke")
-s1.Color = Color3.fromRGB(255, 215, 0)
-s1.Thickness = 2
-s1.Parent = floatingToggle
-
-local dotLayout = Instance.new("UIListLayout")
-dotLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-dotLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-dotLayout.Padding = UDim.new(0, 4)
-dotLayout.Parent = floatingToggle
-
-for i = 1, 3 do
-    local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, 5, 0, 5)
-    dot.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-    dot.BorderSizePixel = 0
-    dot.Parent = floatingToggle
-    local dc = Instance.new("UICorner")
-    dc.CornerRadius = UDim.new(1, 0)
-    dc.Parent = dot
+-- 🔥 Função pra achar a GUI do Fluent
+local function getFluentGui()
+    for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+        if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
+            if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") or gui.Name:lower():find("main") then
+                return gui
+            end
+        end
+    end
+    return nil
 end
 
 -- 🔥 Botão ◀/▶ do canto
 local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0, 45, 0, 45)
-toggleBtn.Position = UDim2.new(0, 20, 0.5, -22)
+toggleBtn.Size = UDim2.new(0, 50, 0, 50)
+toggleBtn.Position = UDim2.new(0, 20, 0.5, -25)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-toggleBtn.Text = "◀"
+toggleBtn.Text = "▶"
 toggleBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
-toggleBtn.TextSize = 22
+toggleBtn.TextSize = 24
 toggleBtn.Font = Enum.Font.GothamBold
 toggleBtn.BorderSizePixel = 0
 toggleBtn.Draggable = true
 toggleBtn.Parent = screenGuiBtn
 
-local c2 = Instance.new("UICorner")
-c2.CornerRadius = UDim.new(1, 0)
-c2.Parent = toggleBtn
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(1, 0)
+c.Parent = toggleBtn
 
-local s2 = Instance.new("UIStroke")
-s2.Color = Color3.fromRGB(255, 215, 0)
-s2.Thickness = 2
-s2.Parent = toggleBtn
+local s = Instance.new("UIStroke")
+s.Color = Color3.fromRGB(255, 215, 0)
+s.Thickness = 2
+s.Parent = toggleBtn
 
--- 🔥 Função pra restaurar (clicar no 3 pontinhos)
-local function restaurar()
-    pcall(function() Window:Show() end)
-    floatingToggle.Visible = false
-    toggleBtn.Visible = true
-end
-
-local startPos
-floatingToggle.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        startPos = input.Position
-    end
-end)
-
-floatingToggle.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        if startPos then
-            if (startPos - input.Position).Magnitude < 10 then
-                restaurar()
-            end
-            startPos = nil
-        end
-    end
-end)
-
--- 🔥 Botão ◀ minimiza pra 3 pontinhos
+-- 🔥 Toggle
+local aberta = true
 toggleBtn.MouseButton1Click:Connect(function()
-    pcall(function() Window:Hide() end)
-    toggleBtn.Visible = false
-    floatingToggle.Visible = true
-end)
-
--- 🔥 Adiciona botão "—" dentro da GUI do Fluent (se conseguir achar)
-task.wait(2)
-pcall(function()
-    for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
-        if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
-            for _, v in pairs(gui:GetDescendants()) do
-                if v:IsA("TextButton") and (v.Text == "X" or v.Name:lower():find("close")) then
-                    local pai = v.Parent
-                    if not pai:FindFirstChild("DRONX_Min") then
-                        local minBtn = Instance.new("TextButton")
-                        minBtn.Name = "DRONX_Min"
-                        minBtn.Size = UDim2.new(0, 25, 0, 25)
-                        minBtn.Position = UDim2.new(1, -65, 0.5, -12)
-                        minBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-                        minBtn.Text = "—"
-                        minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        minBtn.TextSize = 18
-                        minBtn.Font = Enum.Font.GothamBold
-                        minBtn.BorderSizePixel = 0
-                        minBtn.ZIndex = 999
-                        minBtn.Parent = pai
-                        
-                        local mc = Instance.new("UICorner")
-                        mc.CornerRadius = UDim.new(0, 6)
-                        mc.Parent = minBtn
-                        
-                        minBtn.MouseButton1Click:Connect(function()
-                            pcall(function() Window:Hide() end)
-                            toggleBtn.Visible = false
-                            floatingToggle.Visible = true
-                        end)
-                        
-                        print("[DRONX] ✅ Botão minimizar adicionado!")
-                    end
-                    break
-                end
-            end
-            break
-        end
+    aberta = not aberta
+    local gui = getFluentGui()
+    if gui then
+        gui.Enabled = aberta
+        print("[DRONX] GUI " .. (aberta and "ABERTA" or "FECHADA"))
+    else
+        warn("[DRONX] GUI do Fluent não encontrada")
     end
+    toggleBtn.Text = aberta and "◀" or "▶"
 end)
 
 print("[DRONX] Carregado com sucesso!")
-print("[DRONX] Minimiza clicando no ◀ (vira 3 pontinhos).")
+print("[DRONX] Clique no ◀ pra esconder. Clique no ▶ pra mostrar.")
