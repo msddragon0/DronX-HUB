@@ -519,6 +519,23 @@ Tabs.Main:AddToggle("AutoFarm", {
     Callback = function(v)
         getgenv().DRONX.AutoFarm = v
         if v then getgenv().DRONX.AutoMaestria = false end
+        
+        -- 🔥 ESCONDE A GUI AUTOMATICAMENTE
+        if v then
+            task.wait(0.5)
+            for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+                if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
+                    if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") then
+                        gui.Enabled = false
+                    end
+                end
+            end
+            if toggleBtn then
+                aberta = false
+                toggleBtn.Text = "▶"
+            end
+            Fluent:Notify({Title = "DRONX", Content = "Farm ON - GUI escondida!", Duration = 3})
+        end
     end
 })
 
@@ -528,6 +545,22 @@ Tabs.Main:AddToggle("AutoMaestria", {
     Callback = function(v)
         getgenv().DRONX.AutoMaestria = v
         if v then getgenv().DRONX.AutoFarm = false end
+        
+        if v then
+            task.wait(0.5)
+            for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+                if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
+                    if gui.Name:lower():find("fluent") or gui.Name:lower():find("dawid") then
+                        gui.Enabled = false
+                    end
+                end
+            end
+            if toggleBtn then
+                aberta = false
+                toggleBtn.Text = "▶"
+            end
+            Fluent:Notify({Title = "DRONX", Content = "Maestria ON - GUI escondida!", Duration = 3})
+        end
     end
 })
 
