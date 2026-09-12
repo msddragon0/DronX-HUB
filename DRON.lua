@@ -1,5 +1,5 @@
 -- ============================================================
--- DRONX v4.1 – Auto Farm + Auto Maestria (CORRIGIDO)
+-- DRONX v4.2 – Auto Farm + Auto Maestria (RegisterAttack)
 -- ============================================================
 
 print("[DRONX] Carregando...")
@@ -57,25 +57,6 @@ player.CharacterAdded:Connect(function(char)
     armaEquipada = nil
     print("[DRONX] Respawnou.")
 end)
-
--- ====== HOOK DO COMBAT FRAMEWORK ======
-local plr = game.Players.LocalPlayer
-local CbFw2 = nil
-
-pcall(function()
-    local CF = plr.PlayerScripts:FindFirstChild("CombatFramework")
-    if CF then CbFw2 = debug.getupvalues(require(CF))[2] end
-end)
-...
-if CbFw2 then
-    print("[DRONX] ✅ Hook carregado!")
-else
-    warn("[DRONX] ❌ Hook falhou. Vai usar keypress.")
-end
-
-local function GetCurrentBlade() 
-    ...
-end
 
 -- ====== ATAQUE (RegisterAttack - sem mouse) ======
 local function atacarRapido(npc)
@@ -151,7 +132,7 @@ local function attackNPC(npc)
     if not hum or hum.Health <= 0 or not hrp then return end
 
     local posX = getgenv().DRONX.posX or 0
-    local posY = getgenv().DRONX.posY or 15  -- 🔥 15 studs (mais perto)
+    local posY = getgenv().DRONX.posY or 15
     local posZ = getgenv().DRONX.posZ or 0
     
     rootPart.CFrame = hrp.CFrame * CFrame.new(posX, posY, posZ)
@@ -289,7 +270,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 
 local Window = Fluent:CreateWindow({
     Title = "DRONX HUB",
-    SubTitle = "v4.1",
+    SubTitle = "v4.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(500, 320),
     Theme = "Dark"
@@ -380,13 +361,12 @@ coroutine.wrap(function()
     end
 end)()
 
--- ====== BOTÃO FLUTUANTE + MINIMIZAR (estilo Kavo) ======
+-- ====== BOTÃO FLUTUANTE + MINIMIZAR ======
 local screenGuiBtn = Instance.new("ScreenGui")
 screenGuiBtn.Name = "DRONX_BotaoFlutuante"
 screenGuiBtn.ResetOnSpawn = false
 screenGuiBtn.Parent = game:GetService("CoreGui") or game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- 🔥 Ícone de 3 pontinhos (estilo Kavo)
 local floatingToggle = Instance.new("Frame")
 floatingToggle.Size = UDim2.new(0, 45, 0, 45)
 floatingToggle.Position = UDim2.new(0, 20, 0.5, -22)
@@ -406,14 +386,12 @@ strokeBtn.Color = Color3.fromRGB(255, 215, 0)
 strokeBtn.Thickness = 2
 strokeBtn.Parent = floatingToggle
 
--- Layout dos 3 pontinhos
 local dotLayout = Instance.new("UIListLayout")
 dotLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 dotLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 dotLayout.Padding = UDim.new(0, 4)
 dotLayout.Parent = floatingToggle
 
--- Cria 3 pontinhos
 for i = 1, 3 do
     local dot = Instance.new("Frame")
     dot.Size = UDim2.new(0, 5, 0, 5)
@@ -426,7 +404,6 @@ for i = 1, 3 do
     dotCorner.Parent = dot
 end
 
--- Declara fluentGui PRIMEIRO
 local function encontrarFluent()
     local function procurar(pai)
         for _, gui in pairs(pai:GetChildren()) do
@@ -447,7 +424,6 @@ if not fluentGui then
     fluentGui = encontrarFluent()
 end
 
--- 🔥 Botão pra restaurar (clicar no ícone)
 local function restaurarJanela()
     if fluentGui and fluentGui.Parent then
         fluentGui.Enabled = true
@@ -469,7 +445,6 @@ floatingToggle.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if startPos then
             local endPos = input.Position
-            -- Só restaura se foi um clique (não arrasto)
             if (startPos - endPos).Magnitude < 10 then
                 restaurarJanela()
             end
@@ -478,109 +453,4 @@ floatingToggle.InputEnded:Connect(function(input)
     end
 end)
 
--- 🔥 Botão de minimizar DENTRO do Fluent (adicionado via código)
-local function adicionarBotaoMinimizar()
-    -- Procura a janela do Fluent
-    local fluentFrame = nil
-    for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
-        if gui:IsA("ScreenGui") and gui ~= screenGuiBtn then
-            for _, v in pairs(gui:GetDescendants()) do
-                -- Procura o frame principal (aquele com botão de fechar)
-                if v:IsA("TextButton") and (v.Text == "X" or v.Name == "Close") then
-                    fluentFrame = v.Parent
-                    break
-                end
-            end
-            if fluentFrame then break end
-        end
-    end
-    
-    if not fluentFrame then
-        warn("[DRONX] Não achei o botão de fechar do Fluent")
-        return
-    end
-    
-    print("[DRONX] ✅ Achei a janela do Fluent!")
-    
-    -- Cria o botão de minimizar ao lado do fechar
-    local minimizeBtn = Instance.new("TextButton")
-    minimizeBtn.Name = "DRONX_Minimize"
-    minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
-    minimizeBtn.Position = UDim2.new(1, -65, 0.5, -12)
-    minimizeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    minimizeBtn.Text = "—"
-    minimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    minimizeBtn.TextSize = 18
-    minimizeBtn.Font = Enum.Font.GothamBold
-    minimizeBtn.BorderSizePixel = 0
-    minimizeBtn.ZIndex = 999
-    minimizeBtn.Parent = fluentFrame
-    
-    local minimizeCorner = Instance.new("UICorner")
-    minimizeCorner.CornerRadius = UDim.new(0, 6)
-    minimizeCorner.Parent = minimizeBtn
-    
-    minimizeBtn.MouseButton1Click:Connect(function()
-        print("[DRONX] Minimizando...")
-        pcall(function()
-            Window:Hide()
-        end)
-        if fluentGui and fluentGui.Parent then
-            fluentGui.Enabled = false
-        end
-        task.wait(0.1)
-        floatingToggle.Visible = true
-    end)
-end
-
--- Tenta adicionar o botão minimizar (com delay)
-task.wait(1)
-pcall(adicionarBotaoMinimizar)
-
--- Se falhar, tenta de novo depois
-if not getgenv().DRONX_MinimizeOK then
-    task.wait(2)
-    pcall(adicionarBotaoMinimizar)
-end
-
--- ====== BOTÃO DO CANTO ESQUERDO (mantém pra abrir/fechar tbm) ======
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0, 45, 0, 45)
-toggleBtn.Position = UDim2.new(0, 80, 0.5, -22)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-toggleBtn.Text = "◀"
-toggleBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
-toggleBtn.TextSize = 22
-toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.BorderSizePixel = 0
-toggleBtn.Draggable = true
-toggleBtn.Parent = screenGuiBtn
-
-local cornerBtn2 = Instance.new("UICorner")
-cornerBtn2.CornerRadius = UDim.new(1, 0)
-cornerBtn2.Parent = toggleBtn
-
-local strokeBtn2 = Instance.new("UIStroke")
-strokeBtn2.Color = Color3.fromRGB(255, 215, 0)
-strokeBtn2.Thickness = 2
-strokeBtn2.Parent = toggleBtn
-
-local guiAberta = true
-
-toggleBtn.MouseButton1Click:Connect(function()
-    guiAberta = not guiAberta
-    local sucesso = pcall(function()
-        if guiAberta then Window:Show() else Window:Hide() end
-    end)
-    if not sucesso then
-        if not fluentGui or not fluentGui.Parent then
-            fluentGui = encontrarFluent()
-        end
-        if fluentGui then fluentGui.Enabled = guiAberta end
-    end
-    toggleBtn.Text = guiAberta and "◀" or "▶"
-    toggleBtn.BackgroundColor3 = guiAberta and Color3.fromRGB(25, 25, 35) or Color3.fromRGB(50, 0, 0)
-end)
-
 print("[DRONX] Carregado com sucesso!")
-print("[DRONX] Se aparecer 3 pontinhos = minimize. Clique neles pra restaurar.")
