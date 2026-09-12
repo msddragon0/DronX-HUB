@@ -64,19 +64,22 @@ pcall(function()
     end)
 end)
 
--- ====== ATAQUE (VirtualUser - não mexe no cursor) ======
+-- ====== ATAQUE (com Lerp - olhar suave) ======
+local RunService = game:GetService("RunService")
+
 local function atacarRapido(npc)
     pcall(function()
+        -- 🔥 Lerp: olha pro NPC suavemente (não teleporta)
         if npc and npc.Parent and npc:FindFirstChild("HumanoidRootPart") then
             local hrp = npc.HumanoidRootPart
-            rootPart.CFrame = CFrame.new(rootPart.Position, hrp.Position)
+            local alvo = CFrame.lookAt(rootPart.Position, hrp.Position)
+            rootPart.CFrame = rootPart.CFrame:Lerp(alvo, 0.3)
         end
         
         if getgenv().DRONX_REMOTES and getgenv().DRONX_REMOTES.RegisterAttack then
             getgenv().DRONX_REMOTES.RegisterAttack:FireServer(0.4, 1, nil)
         end
         
-        -- 🔥 VirtualUser (não mexe no cursor)
         game:GetService("VirtualUser"):CaptureController()
         game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
         task.wait(0.05)
