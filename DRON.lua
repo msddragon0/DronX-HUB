@@ -64,21 +64,19 @@ pcall(function()
     end)
 end)
 
--- ====== ATAQUE (VirtualUser - não clica em tudo) ======
+-- ====== ATAQUE (VirtualUser - não mexe no cursor) ======
 local function atacarRapido(npc)
     pcall(function()
-        -- Olha pro NPC
         if npc and npc.Parent and npc:FindFirstChild("HumanoidRootPart") then
             local hrp = npc.HumanoidRootPart
             rootPart.CFrame = CFrame.new(rootPart.Position, hrp.Position)
         end
         
-        -- RegisterAttack (ativa animação)
         if getgenv().DRONX_REMOTES and getgenv().DRONX_REMOTES.RegisterAttack then
             getgenv().DRONX_REMOTES.RegisterAttack:FireServer(0.4, 1, nil)
         end
         
-        -- 🔥 VirtualUser (não usa cursor real)
+        -- 🔥 VirtualUser (não mexe no cursor)
         game:GetService("VirtualUser"):CaptureController()
         game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
         task.wait(0.05)
@@ -302,7 +300,17 @@ Tabs.Main:AddToggle("AutoFarm", {
     Callback = function(v)
         getgenv().DRONX.AutoFarm = v
         if v then getgenv().DRONX.AutoMaestria = false end
-        Fluent:Notify({Title = "DRONX", Content = v and "Auto Farm ATIVADO!" or "Auto Farm DESATIVADO", Duration = 3})
+        Fluent:Notify({Title = "DRONX", Content = v and "Farm ON!" or "Farm OFF", Duration = 2})
+        
+        -- 🔥 Esconde a GUI automaticamente ao ligar o farm
+        if v then
+            task.wait(1)
+            for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+                if gui:IsA("ScreenGui") and gui.Name:lower():find("fluent") then
+                    gui.Enabled = false
+                end
+            end
+        end
     end
 })
 
@@ -312,7 +320,16 @@ Tabs.Main:AddToggle("AutoMaestria", {
     Callback = function(v)
         getgenv().DRONX.AutoMaestria = v
         if v then getgenv().DRONX.AutoFarm = false end
-        Fluent:Notify({Title = "DRONX", Content = v and "Auto Maestria ATIVADA!" or "Auto Maestria DESATIVADA", Duration = 3})
+        Fluent:Notify({Title = "DRONX", Content = v and "Maestria ON!" or "Maestria OFF", Duration = 2})
+        
+        if v then
+            task.wait(1)
+            for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
+                if gui:IsA("ScreenGui") and gui.Name:lower():find("fluent") then
+                    gui.Enabled = false
+                end
+            end
+        end
     end
 })
 
