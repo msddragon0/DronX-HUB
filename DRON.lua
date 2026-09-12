@@ -1,11 +1,11 @@
 -- ============================================================
--- DRONX v6.0 – Auto Farm + Boss + Chest + Haki + TP + ESP
+-- DRONX v6.0 – Auto Farm + Boss + Chest + Haki + TP + ESP     
 -- ============================================================
 
 print("[DRONX] Carregando...")
 
+
 -- ====== CAPTURA DO REGISTER ATTACK ======
--- ====== CAPTURA DO REGISTER ATTACK (automática) ======
 getgenv().DRONX_REMOTES = getgenv().DRONX_REMOTES or {}
 
 task.spawn(function()
