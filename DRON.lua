@@ -5,8 +5,60 @@
 print("[DRONX] Carregando...")
 
 -- ====== CAPTURA DO REGISTER ATTACK ======
+-- ====== CAPTURA DO REGISTER ATTACK (automática) ======
 getgenv().DRONX_REMOTES = getgenv().DRONX_REMOTES or {}
 
+task.spawn(function()
+    -- Procura o RegisterAttack em vários caminhos
+    local caminhos = {
+        function()
+            local net = game.ReplicatedStorage.Modules:FindFirstChild("Net")
+            if net then
+                local re = net:FindFirstChild("RE")
+                if re then return re:FindFirstChild("RegisterAttack") end
+            end
+        end,
+        function()
+            local net = game.ReplicatedStorage.Modules:FindFirstChild("Net")
+            if net then return net:FindFirstChild("RegisterAttack") end
+        end,
+        function()
+            return game.ReplicatedStorage:FindFirstChild("RegisterAttack", true)
+        end,
+        function()
+            return game.ReplicatedStorage.Modules.Net:FindFirstChild("RE/RegisterAttack")
+        end,
+    }
+    
+    for i, caminho in ipairs(caminhos) do
+        local sucesso, remote = pcall(caminho)
+        if sucesso and remote then
+            getgenv().DRONX_REMOTES.RegisterAttack = remote
+            print("[DRONX] ✅ RegisterAttack capturado! (caminho " .. i .. ")")
+            return
+        end
+    end
+    
+    -- Se falhar, tenta via getgc (pega todos os objetos do jogo)
+    pcall(function()
+        for _, v in pairs(getgc()) do
+            if type(v) == "table" or typeof(v) == "Instance" then
+                pcall(function()
+                    if v.Name == "RegisterAttack" then
+                        getgenv().DRONX_REMOTES.RegisterAttack = v
+                        print("[DRONX] ✅ RegisterAttack capturado via getgc!")
+                    end
+                end)
+            end
+        end
+    end)
+    
+    if not getgenv().DRONX_REMOTES.RegisterAttack then
+        warn("[DRONX] ❌ RegisterAttack não encontrado. Ataque pode falhar.")
+    end
+end)
+
+-- Hook de backup (captura se o jogo disparar de qualquer jeito)
 pcall(function()
     local mt = getrawmetatable(game)
     local oldNamecall = mt.__namecall
@@ -23,7 +75,8 @@ pcall(function()
         return oldNamecall(self, ...)
     end)
 end)
-print("[DRONX] Capturador de RegisterAttack instalado.")
+
+print("[DRONX] Captura automática de RegisterAttack ativada.")
 
 -- ====== CONFIGURAÇÕES ======
 getgenv().DRONX = {
