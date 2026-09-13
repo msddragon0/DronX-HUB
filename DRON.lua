@@ -86,16 +86,18 @@ function Security.antiAFK()
     end
 end
 
--- [ZONA 4: MÓDULO DE COMBATE]
+-- [ZONA 4: MÓDULO DE COMBATE - AJUSTADO PARA ATAQUE DE LONGE]
 local Combat = {}
 
 function Combat.atacarRapido(npc)
     if not npc or not npc:FindFirstChild("HumanoidRootPart") then return end
     
-    -- Movimento Suave para o alvo
-    rootPart.CFrame = rootPart.CFrame:Lerp(CFrame.new(rootPart.Position, npc.HumanoidRootPart.Position), 0.2)
+    -- 1. Mantém o personagem olhando para o NPC
+    rootPart.CFrame = CFrame.new(rootPart.Position, npc.HumanoidRootPart.Position)
     
-    if getgenv().DRONX_REMOTES.RegisterAttack then
+    -- 2. Disparo do Remote de Ataque
+    if getgenv().DRONX_REMOTES and getgenv().DRONX_REMOTES.RegisterAttack then
+        -- Simula o ataque
         getgenv().DRONX_REMOTES.RegisterAttack:FireServer(0.4, 1, nil)
     end
 end
@@ -103,14 +105,24 @@ end
 function Combat.travarNPC(npc)
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     local hum = npc:FindFirstChildOfClass("Humanoid")
+    
     if hrp and hum then
+        -- 1. Trava o movimento do NPC para ele não fugir
         hum.WalkSpeed = 0
         hum.JumpPower = 0
+        
+        -- 2. Posicionamento de Distância (O SEGREDO)
+        -- Em vez de ficar em cima, o NPC será mantido a uma distância de 15 a 20 studs
+        -- Isso evita que você tome dano e permite usar a hitbox de longe
+        local distanciaDesejada = 15 
+        local posicaoAlvo = rootPart.Position + (rootPart.CFrame.LookVector * distanciaDesejada)
+        
+        hrp.CFrame = CFrame.new(posicaoAlvo, rootPart.Position)
+        
+        -- 3. Desativa colisão para não bugar o personagem
         hrp.CanCollide = false
-        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -getgenv().DRONX.posY, -5)
     end
 end
-
 function getClosestNPC()
     local closest, minDist = nil, math.huge
     local folder = workspace:FindFirstChild("Enemies")
