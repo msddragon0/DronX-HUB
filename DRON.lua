@@ -188,30 +188,32 @@ task.spawn(function()
 
         Security.antiAFK()
 
-        -- [ZONA 6: LOOP PRINCIPAL - ORDEM DE EXECUÇÃO]
-if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
-    Security.checkGround()
-    
-    local npc = getClosestNPC() 
-    if npc then
-        local hum = npc:FindFirstChildOfClass("Humanoid")
-        local hrp = npc:FindFirstChild("HumanoidRootPart")
-        
-        if hum and hum.Health > 0 and hrp then
-            -- 1. Primeiro trava o NPC na distância certa
-            Combat.travarNPC(npc)
+        -- [ZONA 6: LOGICA DE FARM]
+        if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
+            Security.checkGround()
             
-            -- 2. Depois ataca
-            Combat.atacarRapido(npc)
-            
-            -- 3. Auto Heal (Se necessário)
-            if getgenv().DRONX.AutoHeal and (humanoid.Health / humanoid.MaxHealth) < 0.5 then
-                -- Sua lógica de poção aqui
+            local npc = getClosestNPC() 
+            if npc then
+                local hum = npc:FindFirstChildOfClass("Humanoid")
+                local hrp = npc:FindFirstChild("HumanoidRootPart")
+                
+                if hum and hum.Health > 0 and hrp then
+                    -- 1. Trava o NPC na distância certa
+                    Combat.travarNPC(npc)
+                    
+                    -- 2. Ataca
+                    Combat.atacarRapido(npc)
+                    
+                    -- 3. Auto Heal
+                    if getgenv().DRONX.AutoHeal and (humanoid.Health / humanoid.MaxHealth) < 0.5 then
+                        local p = player.Backpack:FindFirstChild("Potion") or character:FindFirstChild("Potion")
+                        if p then pcall(function() p:Activate() end) end
+                    end
+                end
             end
-        end
-    end
-end
-
+        end -- Fecha o IF do AutoFarm
+    end -- Fecha o WHILE do Loop
+end) -- Fecha o TASK.SPAWN
 -- [ZONA 7: INTERFACE (GUI)]
 -- Carregamento da Fluent
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
