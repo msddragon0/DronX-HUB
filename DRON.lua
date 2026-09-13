@@ -188,32 +188,29 @@ task.spawn(function()
 
         Security.antiAFK()
 
-        if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
-            Security.checkGround()
-
-            -- 1. Busca o NPC mais próximo (usando sua função original)
-            local npc = getClosestNPC() 
+        -- [ZONA 6: LOOP PRINCIPAL - ORDEM DE EXECUÇÃO]
+if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
+    Security.checkGround()
+    
+    local npc = getClosestNPC() 
+    if npc then
+        local hum = npc:FindFirstChildOfClass("Humanoid")
+        local hrp = npc:FindFirstChild("HumanoidRootPart")
+        
+        if hum and hum.Health > 0 and hrp then
+            -- 1. Primeiro trava o NPC na distância certa
+            Combat.travarNPC(npc)
             
-            if npc then
-                -- 2. Verifica se o NPC ainda é válido (tem vida e está no jogo)
-                local hum = npc:FindFirstChildOfClass("Humanoid")
-                local hrp = npc:FindFirstChild("HumanoidRootPart")
-                
-                if hum and hum.Health > 0 and hrp then
-                    -- 3. Aplica o combo de Farm
-                    Combat.travarNPC(npc) -- Trava o NPC na sua frente
-                    Combat.atacarRapido(npc) -- Ataca o NPC
-                    
-                    -- 4. Auto Heal (Se estiver com pouca vida)
-                    if getgenv().DRONX.AutoHeal and (humanoid.Health / humanoid.MaxHealth) < 0.5 then
-                        local p = player.Backpack:FindFirstChild("Potion") or character:FindFirstChild("Potion")
-                        if p then pcall(function() p:Activate() end) end
-                    end
-                end
+            -- 2. Depois ataca
+            Combat.atacarRapido(npc)
+            
+            -- 3. Auto Heal (Se necessário)
+            if getgenv().DRONX.AutoHeal and (humanoid.Health / humanoid.MaxHealth) < 0.5 then
+                -- Sua lógica de poção aqui
             end
         end
     end
-end)
+end
 
 -- [ZONA 7: INTERFACE (GUI)]
 -- Carregamento da Fluent
