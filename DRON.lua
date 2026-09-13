@@ -111,6 +111,26 @@ function Combat.travarNPC(npc)
     end
 end
 
+function getClosestNPC()
+    local closest, minDist = nil, math.huge
+    local folder = workspace:FindFirstChild("Enemies")
+    if not folder then return nil end
+    for _, npc in pairs(folder:GetChildren()) do
+        if npc:IsA("Model") and not npc.Name:lower():find("brigade") and not npc.Name:lower():find("boat") then
+            local hum = npc:FindFirstChildOfClass("Humanoid")
+            local hrp = npc:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and hrp then
+                local dist = (rootPart.Position - hrp.Position).Magnitude
+                if dist < minDist and dist <= getgenv().DRONX.MaxDistance then
+                    minDist = dist
+                    closest = npc
+                end
+            end
+        end
+    end
+    return closest
+end
+
 -- [ZONA 5: MÓDULO DE UTILITÁRIOS]
 local Utils = {}
 
@@ -158,10 +178,27 @@ task.spawn(function()
 
         if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
             Security.checkGround()
-            -- Aqui entra sua lógica de busca de NPC e ataque
-            -- Exemplo simplificado:
-            -- local npc = getClosestNPC() 
-            -- if npc then Combat.travarNPC(npc); Combat.atacarRapido(npc) end
+
+            -- 1. Busca o NPC mais próximo (usando sua função original)
+            local npc = getClosestNPC() 
+            
+            if npc then
+                -- 2. Verifica se o NPC ainda é válido (tem vida e está no jogo)
+                local hum = npc:FindFirstChildOfClass("Humanoid")
+                local hrp = npc:FindFirstChild("HumanoidRootPart")
+                
+                if hum and hum.Health > 0 and hrp then
+                    -- 3. Aplica o combo de Farm
+                    Combat.travarNPC(npc) -- Trava o NPC na sua frente
+                    Combat.atacarRapido(npc) -- Ataca o NPC
+                    
+                    -- 4. Auto Heal (Se estiver com pouca vida)
+                    if getgenv().DRONX.AutoHeal and (humanoid.Health / humanoid.MaxHealth) < 0.5 then
+                        local p = player.Backpack:FindFirstChild("Potion") or character:FindFirstChild("Potion")
+                        if p then pcall(function() p:Activate() end) end
+                    end
+                end
+            end
         end
     end
 end)
