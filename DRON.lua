@@ -1,244 +1,186 @@
 -- ============================================================
--- DRONX v7.0 – ZONA 9: GUI (FLUENT) — ABA MAIN
--- Cola isso logo abaixo do print("[DRONX] Engine Ultra Carregada!")
+-- DRONX v7.0 – ARQUIVO COMPLETO
+-- cola tudo isso no executor, substitui o anterior inteiro
 -- ============================================================
 
--- [LIBS]
-local Fluent          = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-local SaveManager     = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
-local InterfaceManager= loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
-
--- [JANELA]
-local Window = Fluent:CreateWindow({
-    Title       = "DRONX v7.0",
-    SubTitle    = "nullsec philippines",
-    TabWidth    = 160,
-    Size        = UDim2.fromOffset(580, 460),
-    Acrylic     = false,   -- blur pode ser detectado — off por padrão
-    Theme       = "Dark",
-    MinimizeKey = Enum.KeyCode.RightControl,
-})
-
--- [ABAS]
-local Tabs = {
-    Main     = Window:AddTab({ Title = "Main",     Icon = "sword"   }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
+-- [ZONA 1: CONFIGURAÇÕES]
+getgenv().DRONX = {
+    Enabled       = true,
+    AutoFarm      = false,
+    AutoMaestria  = false,
+    AutoHeal      = false,
+    AutoCollect   = false,
+    AutoQuest     = false,
+    BringMob      = false,
+    AntiAFK       = true,
+    AutoBoss      = false,
+    BossName      = "",
+    AutoChest     = false,
+    ESP           = false,
+    TipoArma      = "Sword",
+    MaxDistance   = 1000,
+    HealThreshold = 0.5,
+    posY          = 3,
+    Kills         = 0,
+    TweenSpeed    = 300,
 }
 
-local Options = Fluent.Options
+-- [ZONA 2: SERVIÇOS & REFS]
+local Players      = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService   = game:GetService("RunService")
+local VirtualUser  = game:GetService("VirtualUser")
 
--- ============================================================
--- ABA MAIN
--- ============================================================
-do
-    -- ── AVISO ────────────────────────────────────────────────
-    Tabs.Main:AddParagraph({
-        Title   = "DRONX Engine",
-        Content = "Todos os módulos rodam em background.\nDesative o script antes de fechar o jogo.",
-    })
+local player = Players.LocalPlayer
+local char, root, hum
 
-    -- ── AUTO FARM ────────────────────────────────────────────
-    local ToggleFarm = Tabs.Main:AddToggle("AutoFarm", {
-        Title       = "Auto Farm",
-        Description = "Mata o NPC mais próximo em loop.",
-        Default     = false,
-    })
-    ToggleFarm:OnChanged(function()
-        getgenv().DRONX.AutoFarm = Options.AutoFarm.Value
-    end)
+local function fetchChar()
+    char = player.Character or player.CharacterAdded:Wait()
+    root = char:WaitForChild("HumanoidRootPart")
+    hum  = char:WaitForChild("Humanoid")
+end
+fetchChar()
+player.CharacterAdded:Connect(fetchChar)
 
-    -- ── AUTO MAESTRIA ─────────────────────────────────────────
-    local ToggleMaestria = Tabs.Main:AddToggle("AutoMaestria", {
-        Title       = "Auto Maestria",
-        Description = "Farm focado em XP de maestria da arma equipada.",
-        Default     = false,
-    })
-    ToggleMaestria:OnChanged(function()
-        getgenv().DRONX.AutoMaestria = Options.AutoMaestria.Value
-    end)
+-- [ZONA 3: UTILITÁRIOS]
 
-    -- ── AUTO HEAL ─────────────────────────────────────────────
-    local ToggleHeal = Tabs.Main:AddToggle("AutoHeal", {
-        Title       = "Auto Heal",
-        Description = "Usa poção quando HP cai abaixo do limiar.",
-        Default     = false,
-    })
-    ToggleHeal:OnChanged(function()
-        getgenv().DRONX.AutoHeal = Options.AutoHeal.Value
-    end)
+-- Blox Fruits guarda mobs em vários lugares dependendo da sea/island
+-- essa função varre o workspace inteiro procurando humanoids vivos
+local function getClosestNPC()
+    local maxDist = getgenv().DRONX.MaxDistance
+    local closest, closestDist = nil, maxDist
 
-    -- Limiar de HP (slider — 10% a 90%)
-    local SliderHeal = Tabs.Main:AddSlider("HealThreshold", {
-        Title       = "Limiar de Cura",
-        Description = "Cura quando HP < X% do máximo.",
-        Default     = 50,
-        Min         = 10,
-        Max         = 90,
-        Rounding    = 0,
-        Callback    = function(Value)
-            getgenv().DRONX.HealThreshold = Value / 100
-        end,
-    })
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Humanoid") and obj.Health > 0 then
+            local model = obj.Parent
+            -- ignora o próprio player e outros players
+            if model == char then continue end
+            if Players:GetPlayerFromCharacter(model) then continue end
 
-    -- ── AUTO CHEST ────────────────────────────────────────────
-    local ToggleChest = Tabs.Main:AddToggle("AutoChest", {
-        Title       = "Auto Chest",
-        Description = "Coleta baús do mapa automaticamente.",
-        Default     = false,
-    })
-    ToggleChest:OnChanged(function()
-        getgenv().DRONX.AutoChest = Options.AutoChest.Value
-    end)
-
-    -- ── AUTO QUEST ────────────────────────────────────────────
-    local ToggleQuest = Tabs.Main:AddToggle("AutoQuest", {
-        Title       = "Auto Quest",
-        Description = "Aceita e entrega quests do NPC mais próximo.",
-        Default     = false,
-    })
-    ToggleQuest:OnChanged(function()
-        getgenv().DRONX.AutoQuest = Options.AutoQuest.Value
-    end)
-
-    -- ── AUTO BOSS ─────────────────────────────────────────────
-    local ToggleBoss = Tabs.Main:AddToggle("AutoBoss", {
-        Title       = "Auto Boss",
-        Description = "Teleporta e ataca o boss configurado abaixo.",
-        Default     = false,
-    })
-    ToggleBoss:OnChanged(function()
-        getgenv().DRONX.AutoBoss = Options.AutoBoss.Value
-    end)
-
-    -- Nome do boss (input de texto)
-    local InputBoss = Tabs.Main:AddInput("BossName", {
-        Title       = "Nome do Boss",
-        Default     = "",
-        Placeholder = "ex: Gorilla King",
-        Numeric     = false,
-        Finished    = true,   -- só aplica ao pressionar Enter
-        Callback    = function(Value)
-            getgenv().DRONX.BossName = Value
-        end,
-    })
-
-    -- ── BRING MOB ─────────────────────────────────────────────
-    local ToggleBring = Tabs.Main:AddToggle("BringMob", {
-        Title       = "Bring Mob",
-        Description = "Puxa o NPC para perto de você durante o farm.",
-        Default     = false,
-    })
-    ToggleBring:OnChanged(function()
-        getgenv().DRONX.BringMob = Options.BringMob.Value
-    end)
-
-    -- ── TIPO DE ARMA ──────────────────────────────────────────
-    local DropdownArma = Tabs.Main:AddDropdown("TipoArma", {
-        Title   = "Tipo de Arma",
-        Values  = { "Sword", "Gun", "Fruit", "Melee" },
-        Multi   = false,
-        Default = 1,
-    })
-    DropdownArma:OnChanged(function(Value)
-        getgenv().DRONX.TipoArma = Value
-        Utils.EquiparArma(Value)
-    end)
-
-    -- ── DISTÂNCIA MÁXIMA ──────────────────────────────────────
-    local SliderDist = Tabs.Main:AddSlider("MaxDistance", {
-        Title       = "Distância Máxima (studs)",
-        Description = "Raio de detecção de NPCs e baús.",
-        Default     = 1000,
-        Min         = 100,
-        Max         = 5000,
-        Rounding    = 0,
-        Callback    = function(Value)
-            getgenv().DRONX.MaxDistance = Value
-        end,
-    })
-
-    -- ── VELOCIDADE DE TELEPORTE ───────────────────────────────
-    local SliderSpeed = Tabs.Main:AddSlider("TweenSpeed", {
-        Title       = "Velocidade de TP (studs/s)",
-        Description = "Mais alto = mais rápido, mais detectável.",
-        Default     = 300,
-        Min         = 50,
-        Max         = 2000,
-        Rounding    = 0,
-        Callback    = function(Value)
-            getgenv().DRONX.TweenSpeed = Value
-        end,
-    })
-
-    -- ── ANTI-AFK ─────────────────────────────────────────────
-    local ToggleAFK = Tabs.Main:AddToggle("AntiAFK", {
-        Title       = "Anti-AFK",
-        Description = "Previne kick por inatividade.",
-        Default     = true,
-    })
-    ToggleAFK:OnChanged(function()
-        getgenv().DRONX.AntiAFK = Options.AntiAFK.Value
-    end)
-
-    -- ── TELEPORTE MANUAL ──────────────────────────────────────
-    Tabs.Main:AddButton({
-        Title       = "TP para NPC mais Próximo",
-        Description = "Teleporta até o alvo atual via Tween.",
-        Callback    = function()
-            local npc = Utils.GetClosestNPC()
-            if npc then
-                local hrp = npc:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    Movement.TweenTo(hrp.CFrame * CFrame.new(0, 0, -12))
+            local hrp = model:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local dist = (hrp.Position - root.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = model
                 end
-            else
-                Fluent:Notify({
-                    Title   = "DRONX",
-                    Content = "Nenhum NPC encontrado no raio configurado.",
-                    Duration = 3,
-                })
             end
-        end,
-    })
+        end
+    end
 
-    -- ── KILL COUNT ────────────────────────────────────────────
-    -- Parágrafo dinâmico — atualiza a cada 2s via loop separado
-    local KillParagraph = Tabs.Main:AddParagraph({
-        Title   = "Kills nesta sessão",
-        Content = "0",
-    })
+    return closest
+end
 
-    task.spawn(function()
-        while task.wait(2) do
-            KillParagraph:Set({
-                Title   = "Kills nesta sessão",
-                Content = tostring(getgenv().DRONX.Kills),
-            })
+local function equiparArma(tipo)
+    local alvo = tipo or getgenv().DRONX.TipoArma
+    for _, t in ipairs(player.Backpack:GetChildren()) do
+        if t:IsA("Tool") and (t.ToolTip == alvo or t.Name == alvo) then
+            hum:EquipTool(t)
+            return
+        end
+    end
+end
+
+local function usarPocao()
+    for _, t in ipairs(player.Backpack:GetChildren()) do
+        if t:IsA("Tool") and t.Name:lower():find("potion") then
+            hum:EquipTool(t)
+            task.wait(0.15)
+            local act = t:FindFirstChild("Activate")
+            if act then act:Fire() end
+            return
+        end
+    end
+end
+
+-- [ZONA 4: MOVIMENTO]
+local function tweenTo(targetCFrame)
+    local dist = (targetCFrame.Position - root.Position).Magnitude
+    local info = TweenInfo.new(dist / getgenv().DRONX.TweenSpeed, Enum.EasingStyle.Linear)
+    local tw   = TweenService:Create(root, info, {CFrame = targetCFrame})
+    tw:Play()
+    tw.Completed:Wait()
+end
+
+-- [ZONA 5: SEGURANÇA]
+local function antiBan()
+    pcall(function()
+        for _, v in ipairs(char:GetDescendants()) do
+            if v:IsA("LocalScript") then
+                local n = v.Name
+                if n == "General" or n == "Shiftlock" or n == "FallDamage" then
+                    v:Destroy()
+                end
+            end
         end
     end)
 end
 
--- ============================================================
--- ABA SETTINGS (SaveManager + InterfaceManager)
--- ============================================================
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-InterfaceManager:SetFolder("DRONX")
-SaveManager:SetFolder("DRONX/BloxFruits")
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
+local function checkGround()
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = {char}
+    local result = workspace:Raycast(root.Position, Vector3.new(0, -15, 0), params)
+    if not result then
+        root.CFrame = root.CFrame * CFrame.new(0, 5, 0)
+    end
+end
 
--- ============================================================
--- INICIALIZAR
--- ============================================================
-Window:SelectTab(1)
+-- [ZONA 6: COMBATE]
 
-Fluent:Notify({
-    Title    = "DRONX v7.0",
-    Content  = "Engine carregada. Boa farm.",
-    Duration = 5,
-})
+-- Blox Fruits: o ataque principal é via tool equipada
+-- FireServer do remote direto é inconsistente entre versões
+-- método mais estável: simular clique na tool equipada
+local function atacar(npc)
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool then return end
 
-SaveManager:LoadAutoloadConfig()
+    local hrp = npc:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- vira o personagem pro NPC
+    root.CFrame = CFrame.new(root.Position, hrp.Position)
+
+    -- dispara o evento de ativação da tool (ataque)
+    local handle = tool:FindFirstChild("Handle")
+    if handle then
+        -- simula o hit via LocalScript event da tool
+        local remoteEvt = tool:FindFirstChildOfClass("RemoteEvent")
+            or tool:FindFirstChildOfClass("RemoteFunction")
+        if remoteEvt and remoteEvt:IsA("RemoteEvent") then
+            pcall(function() remoteEvt:FireServer(hrp.Position) end)
+        end
+    end
+
+    -- fallback: ativa a tool diretamente
+    pcall(function()
+        tool:Activate()
+    end)
+end
+
+local function travarNPC(npc)
+    local hrp = npc:FindFirstChild("HumanoidRootPart")
+    local nhum = npc:FindFirstChildOfClass("Humanoid")
+    if not (hrp and nhum) then return end
+
+    pcall(function()
+        nhum.WalkSpeed  = 0
+        nhum.JumpPower  = 0
+        hrp.CanCollide  = false
+        -- posiciona o NPC na frente do player a distância de combate
+        hrp.CFrame = root.CFrame * CFrame.new(0, 0, -8)
+    end)
+end
+
+-- [ZONA 7: ENGINE PRINCIPAL]
+task.spawn(function()
+    while task.wait(0.15) do
+        if not getgenv().DRONX.Enabled then continue end
+        if not (char and root and hum) then continue end
+        if hum.Health <= 0 then continue end
+
+        antiBan()
+        checkGround()
+
+        -- AUTO FARM / MAESTRIA
+        if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
+            local npc = getClosestNPC()
