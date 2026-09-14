@@ -1,125 +1,149 @@
 -- ============================================================
--- DRONX v7.0 – ULTRA ENGINE (MAXIMIZED VERSION)
+-- DRONX v7.0 – ULTRA ENGINE (COMPLETA)
 -- ============================================================
 
 print("[DRONX] Carregando Engine Ultra...")
 
--- [ZONA 1: CONFIGURAÇÕES GLOBAIS & VARIÁVEIS]
+-- [ZONA 1: CONFIGURAÇÕES GLOBAIS]
 getgenv().DRONX = {
-    Enabled = true,
-    AutoFarm = false,
+    Enabled      = true,
+    AutoFarm     = false,
     AutoMaestria = false,
-    AutoHeal = false,
-    AutoCollect = false,
-    AutoQuest = false,
-    BringMob = false,
-    AntiAFK = true,
-    AutoBoss = false,
-    BossName = "",
-    AutoChest = false,
-    ESP = false,
-    FPS = false,
-    Fog = false,
-    TipoArma = "Sword",
-    MaxDistance = 1000,
-    HealThreshold = 0.5,
-    posY = 3,
-    Kills = 0,
-    -- Variáveis de Controle de Velocidade (Tween)
-    TweenSpeed = 300,
-    BypassTP = true
+    AutoHeal     = false,
+    AutoCollect  = false,
+    AutoQuest    = false,
+    BringMob     = false,
+    AntiAFK      = true,
+    AutoBoss     = false,
+    BossName     = "",
+    AutoChest    = false,
+    ESP          = false,
+    TipoArma     = "Sword",
+    MaxDistance  = 1000,
+    HealThreshold= 0.5,
+    posY         = 3,
+    Kills        = 0,
+    TweenSpeed   = 300,
+    BypassTP     = true,
 }
 
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local rootPart = character:WaitForChild("HumanoidRootPart")
-local humanoid = character:WaitForChild("Humanoid")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
+getgenv().DRONX_REMOTES = {}
 
--- [ZONA 2: MÓDULO DE SEGURANÇA & ANTI-BAN]
+-- [ZONA 2: REFS DO PLAYER — COM RE-FETCH NO RESPAWN]
+local Players      = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService   = game:GetService("RunService")
+local VirtualUser  = game:GetService("VirtualUser")
+
+local player = Players.LocalPlayer
+local character, rootPart, humanoid
+
+local function fetchCharacter()
+    character = player.Character or player.CharacterAdded:Wait()
+    rootPart  = character:WaitForChild("HumanoidRootPart")
+    humanoid  = character:WaitForChild("Humanoid")
+end
+
+fetchCharacter()
+player.CharacterAdded:Connect(fetchCharacter)
+
+-- [ZONA 3: POPULANDO REMOTES]
+-- Blox Fruits guarda os remotes dentro de ReplicatedStorage após o jogo carregar.
+-- Ajuste os nomes conforme a versão atual do jogo.
+task.defer(function()
+    local RS = game:GetService("ReplicatedStorage")
+    -- Tenta capturar o remote de ataque — nome pode variar por versão
+    local ok, rem = pcall(function()
+        return RS:WaitForChild("Remotes", 5):WaitForChild("CommF_", 5)
+    end)
+    if ok and rem then
+        getgenv().DRONX_REMOTES.RegisterAttack = rem
+    else
+        warn("[DRONX] Remote de ataque não encontrado — verifique o nome no seu executor.")
+    end
+end)
+
+-- [ZONA 4: SEGURANÇA & ANTI-BAN]
 local Security = {}
 
 function Security.AntiBan()
     pcall(function()
-        -- Destruir scripts de detecção comuns
-        for _, v in pairs(player.Character:GetDescendants()) do
+        for _, v in ipairs(character:GetDescendants()) do
             if v:IsA("LocalScript") then
-                if v.Name == "General" or v.Name == "Shiftlock" or v.Name == "FallDamage" then
+                local n = v.Name
+                if n == "General" or n == "Shiftlock" or n == "FallDamage" then
                     v:Destroy()
                 end
             end
         end
-        -- Limpar scripts do PlayerScripts
-        for _, v in pairs(player.PlayerScripts:GetDescendants()) do
-            if v:IsA("LocalScript") and (v.Name == "CamBob" or v.Name == "JumpCD") then
-                v:Destroy()
+        for _, v in ipairs(player.PlayerScripts:GetDescendants()) do
+            if v:IsA("LocalScript") then
+                local n = v.Name
+                if n == "CamBob" or n == "JumpCD" then
+                    v:Destroy()
+                end
             end
         end
     end)
 end
 
-function Security.checkGround()
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = {character}
-    local raycastResult = workspace:Raycast(rootPart.Position, Vector3.new(0, -15, 0), raycastParams)
-    if not raycastResult then
+function Security.CheckGround()
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = {character}
+    local result = workspace:Raycast(rootPart.Position, Vector3.new(0, -15, 0), params)
+    if not result then
         rootPart.CFrame = rootPart.CFrame * CFrame.new(0, 5, 0)
     end
 end
 
--- [ZONA 3: MÓDULO DE MOVIMENTO (TWEEN & BYPASS)]
+-- [ZONA 5: MOVIMENTO]
 local Movement = {}
 
 function Movement.TweenTo(targetCFrame)
-    local distance = (targetCFrame.Position - rootPart.Position).Magnitude
+    local dist  = (targetCFrame.Position - rootPart.Position).Magnitude
     local speed = getgenv().DRONX.TweenSpeed
-    
-    local tweenInfo = TweenInfo.new(distance / speed, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(rootPart, tweenInfo, {CFrame = targetCFrame})
-    
+    local info  = TweenInfo.new(dist / speed, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(rootPart, info, {CFrame = targetCFrame})
     tween:Play()
     return tween
 end
 
 function Movement.BypassTP()
-    -- Simula o estado de queda para burlar o anti-cheat durante o TP
     humanoid:ChangeState(Enum.HumanoidStateType.Physics)
     task.wait(0.1)
     humanoid:ChangeState(Enum.HumanoidStateType.Running)
 end
 
--- [ZONA 4: MÓDULO DE COMBATE (ATTACK & HITBOX)]
+-- [ZONA 6: COMBATE]
 local Combat = {}
 
 function Combat.AttackNoCooldown()
-    -- Lógica de ataque rápido (Simulando o Hit sem CD)
     pcall(function()
-        if getgenv().DRONX_REMOTES.RegisterAttack then
-            getgenv().DRONX_REMOTES.RegisterAttack:FireServer(0.4, 1, nil)
+        local rem = getgenv().DRONX_REMOTES.RegisterAttack
+        if rem then
+            rem:FireServer(0.4, 1, nil)
         end
     end)
 end
 
-function Combat.travarNPC(npc)
+function Combat.TravarNPC(npc)
     local hrp = npc:FindFirstChild("HumanoidRootPart")
     local hum = npc:FindFirstChildOfClass("Humanoid")
-    if hrp and hum then
-        hum.WalkSpeed = 0
-        hum.JumpPower = 0
+    if not (hrp and hum) then return end
+    pcall(function()
+        hum.WalkSpeed  = 0
+        hum.JumpPower  = 0
         hrp.CanCollide = false
-        -- Mantém o NPC a uma distância de combate segura
-        local distanciaDesejada = 12 
-        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -getgenv().DRONX.posY, -distanciaDesejada)
-    end
+        hrp.CFrame = rootPart.CFrame * CFrame.new(0, -getgenv().DRONX.posY, -12)
+    end)
 end
 
--- [ZONA 5: MÓDULO DE UTILITÁRIOS]
+-- [ZONA 7: UTILITÁRIOS]
 local Utils = {}
 
-function Utils.equiparArma(tipo)
+function Utils.EquiparArma(tipo)
     local alvo = tipo or getgenv().DRONX.TipoArma
-    for _, t in pairs(player.Backpack:GetChildren()) do
+    for _, t in ipairs(player.Backpack:GetChildren()) do
         if t:IsA("Tool") and (t.ToolTip == alvo or t.Name == alvo) then
             humanoid:EquipTool(t)
             return
@@ -127,45 +151,102 @@ function Utils.equiparArma(tipo)
     end
 end
 
--- [ZONA 6: O LOOP PRINCIPAL (ENGINE)]
+-- Retorna o NPC mais próximo dentro de MaxDistance
+function Utils.GetClosestNPC()
+    local maxDist = getgenv().DRONX.MaxDistance
+    local closest, closestDist = nil, maxDist
+
+    -- Blox Fruits guarda mobs em workspace — ajuste a pasta se necessário
+    local folder = workspace:FindFirstChild("Enemies") or workspace
+
+    for _, model in ipairs(folder:GetChildren()) do
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        local hrp = model:FindFirstChild("HumanoidRootPart")
+        if hum and hrp and hum.Health > 0 then
+            local dist = (hrp.Position - rootPart.Position).Magnitude
+            if dist < closestDist then
+                closestDist = dist
+                closest = model
+            end
+        end
+    end
+
+    return closest
+end
+
+function Utils.UsarPocao()
+    -- Blox Fruits: poções ficam no Backpack como Tools
+    for _, t in ipairs(player.Backpack:GetChildren()) do
+        if t:IsA("Tool") and t.Name:lower():find("potion") then
+            humanoid:EquipTool(t)
+            task.wait(0.1)
+            -- Simula ativação
+            local fa = t:FindFirstChildOfClass("LocalScript")
+            if fa then
+                local ev = t:FindFirstChild("Activate")
+                if ev then ev:Fire() end
+            end
+            return
+        end
+    end
+end
+
+-- [ZONA 8: ENGINE PRINCIPAL]
 task.spawn(function()
     while task.wait(0.3) do
         if not getgenv().DRONX.Enabled then continue end
+        if not (character and rootPart and humanoid) then continue end
+        if humanoid.Health <= 0 then continue end
 
-        -- 1. Segurança constante
-        Security.antiBan()
-        Security.checkGround()
+        -- Segurança constante
+        Security.AntiBan()
+        Security.CheckGround()
 
-        -- 2. Lógica de Auto Farm
+        -- Auto Farm / Maestria
         if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
-            local npc = getClosestNPC() -- Função que você já tem
+            local npc = Utils.GetClosestNPC()
             if npc then
-                -- Trava o NPC
-                Combat.travarNPC(npc)
-                
-                -- Ataca
+                Combat.TravarNPC(npc)
                 Combat.AttackNoCooldown()
-                
+
                 -- Auto Heal
-                if getgenv().DRONX.AutoHeal and (humanoid.Health / humanoid.MaxHealth) < 0.5 then
-                    -- Lógica de poção
+                if getgenv().DRONX.AutoHeal then
+                    local pct = humanoid.Health / humanoid.MaxHealth
+                    if pct < getgenv().DRONX.HealThreshold then
+                        Utils.UsarPocao()
+                    end
                 end
             end
         end
-        
-        -- 3. Anti-AFK
+
+        -- Anti-AFK
         if getgenv().DRONX.AntiAFK then
-            game:GetService("VirtualUser"):CaptureController()
-            game:GetService("VirtualUser"):Button1Down(Vector2.new(0, 0))
-            task.wait(0.05)
-            game:GetService("VirtualUser"):Button1Up(Vector2.new(0, 0))
+            pcall(function()
+                VirtualUser:CaptureController()
+                VirtualUser:Button1Down(Vector2.new(0, 0))
+                task.wait(0.05)
+                VirtualUser:Button1Up(Vector2.new(0, 0))
+            end)
         end
     end
 end)
 
--- [ZONA 7: INTERFACE (GUI)]
--- Aqui você mantém a sua estrutura do Fluent e chama os novos módulos!
--- Exemplo: No botão de Teleporte, use: Movement.TweenTo(CFrame)
--- Exemplo: No botão de Farm, use: Combat.AttackNoCooldown()
+-- [ZONA 9: GUI — FLUENT / RAYFIELD / QUALQUER LIB]
+-- Conecte os toggles assim:
+--
+--   Toggle AutoFarm:
+--     getgenv().DRONX.AutoFarm = true/false
+--
+--   Botão Teleportar até NPC:
+--     local npc = Utils.GetClosestNPC()
+--     if npc then Movement.TweenTo(npc.HumanoidRootPart.CFrame) end
+--
+--   Slider MaxDistance:
+--     getgenv().DRONX.MaxDistance = valor
+--
+--   Slider TweenSpeed:
+--     getgenv().DRONX.TweenSpeed = valor
+--
+-- Se quiser que eu monte a GUI completa com Fluent/Rayfield, manda falar.
 
 print("[DRONX] Engine Ultra Carregada!")
