@@ -1,4 +1,4 @@
-local BASE = "https://raw.githubusercontent.com/msddragon0/DronX-HUB/refs/heads/main/main.lua"
+local BASE = "https://raw.githubusercontent.com/msddragon0/DronX-HUB/refs/heads/main/DRON.lua"
 
 local function load(file)
     loadstring(game:HttpGet(BASE .. file))()
