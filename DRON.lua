@@ -1,41 +1,30 @@
 -- ============================================================
--- DRONX v7.0 – AUTO FARM CORRIGIDO
--- substitui o arquivo inteiro
+-- PATCH 1: substitui getgenv().DRONX
+-- remove TweenSpeed (não usado), adiciona flags novas
 -- ============================================================
-
 getgenv().DRONX = {
     Enabled       = true,
     AutoFarm      = false,
     AutoMaestria  = false,
     AutoHeal      = false,
+    AutoQuest     = false,
+    AutoChest     = false,
     AntiAFK       = true,
-    TipoArma      = "Superhuman",
+    TipoArma      = "Auto",
     MaxDistance   = 2000,
     HealThreshold = 0.5,
     Kills         = 0,
-    TweenSpeed    = 300,
 }
 
-local Players      = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local VirtualUser  = game:GetService("VirtualUser")
-local RunService   = game:GetService("RunService")
+-- ============================================================
+-- PATCH 2: substitui getClosestNPC — filtro melhorado
+-- ============================================================
+local NPC_BLACKLIST = {
+    quest = true, banker = true, civilian = true,
+    shop = true, dealer = true, master = true,
+    teacher = true, courier = true,
+}
 
-local player = Players.LocalPlayer
-local char, root, hum
-
-local function fetchChar()
-    char = player.Character or player.CharacterAdded:Wait()
-    root = char:WaitForChild("HumanoidRootPart")
-    hum  = char:WaitForChild("Humanoid")
-end
-fetchChar()
-player.CharacterAdded:Connect(function()
-    task.wait(1)
-    fetchChar()
-end)
-
--- ── NPC MAIS PRÓXIMO ─────────────────────────────────────────
 local function getClosestNPC()
     local maxDist = getgenv().DRONX.MaxDistance
     local closest, closestDist = nil, maxDist
@@ -44,8 +33,12 @@ local function getClosestNPC()
             local model = obj.Parent
             if model == char then continue end
             if Players:GetPlayerFromCharacter(model) then continue end
-            -- ignora quest givers e NPCs não combatíveis
-            if model.Name:lower():find("quest") then continue end
+            local nameLower = model.Name:lower()
+            local blocked = false
+            for word in pairs(NPC_BLACKLIST) do
+                if nameLower:find(word) then blocked = true break end
+            end
+            if blocked then continue end
             local hrp = model:FindFirstChild("HumanoidRootPart")
             if hrp then
                 local dist = (hrp.Position - root.Position).Magnitude
@@ -59,93 +52,104 @@ local function getClosestNPC()
     return closest
 end
 
--- ── TELEPORTE INSTANTÂNEO (sem tween — combat precisa de proximidade) ──
-local function snapToNPC(npc)
-    local hrp = npc:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    -- fica a 5 studs na frente do NPC
-    root.CFrame = hrp.CFrame * CFrame.new(0, 0, -5)
+-- ============================================================
+-- PATCH 3: substitui atacar — modo Auto detecta tool equipada
+-- ============================================================
+local function getTool()
+    if getgenv().DRONX.TipoArma == "Auto" then
+        local eq = char:FindFirstChildOfClass("Tool")
+        if eq then return eq end
+        local first = player.Backpack:FindFirstChildOfClass("Tool")
+        if first then
+            hum:EquipTool(first)
+            task.wait(0.15)
+            return char:FindFirstChildOfClass("Tool")
+        end
+        return nil
+    end
+    local eq = char:FindFirstChildOfClass("Tool")
+    if eq and eq.Name == getgenv().DRONX.TipoArma then return eq end
+    for _, t in ipairs(player.Backpack:GetChildren()) do
+        if t:IsA("Tool") and t.Name == getgenv().DRONX.TipoArma then
+            hum:EquipTool(t)
+            task.wait(0.15)
+            return char:FindFirstChildOfClass("Tool")
+        end
+    end
+    return char:FindFirstChildOfClass("Tool")
 end
 
--- ── ATAQUE — usa o RemoteEvent da tool equipada ──────────────
 local function atacar(npc)
-    local tool = char:FindFirstChildOfClass("Tool")
-    if not tool then
-        -- tenta equipar a tool pelo nome
-        for _, t in ipairs(player.Backpack:GetChildren()) do
-            if t:IsA("Tool") and t.Name == getgenv().DRONX.TipoArma then
-                hum:EquipTool(t)
-                task.wait(0.1)
-                tool = char:FindFirstChildOfClass("Tool")
-                break
+    local tool = getTool()
+    if not tool then return end
+    local hrp = npc:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    root.CFrame = CFrame.new(root.Position, hrp.Position)
+    for _, v in ipairs(tool:GetDescendants()) do
+        if v:IsA("RemoteEvent") and v.Name ~= "EquipEvent" then
+            pcall(function() v:FireServer(hrp.Position) end)
+        end
+    end
+end
+
+-- ============================================================
+-- PATCH 4: Auto Quest — cola no engine após o bloco AutoFarm
+-- ============================================================
+local function autoQuest()
+    if not getgenv().DRONX.AutoQuest then return end
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Humanoid") then
+            local model = obj.Parent
+            local nameLower = model.Name:lower()
+            if nameLower:find("quest") then
+                local hrp = model:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    -- teleporta até o quest giver
+                    root.CFrame = hrp.CFrame * CFrame.new(0, 0, -5)
+                    task.wait(0.3)
+                    -- tenta disparar remote de quest
+                    for _, v in ipairs(model:GetDescendants()) do
+                        if v:IsA("RemoteEvent") then
+                            pcall(function() v:FireServer() end)
+                        end
+                    end
+                    return
+                end
             end
         end
     end
-    if not tool then return end
+end
 
-    local hrp = npc:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    -- vira pro NPC
-    root.CFrame = CFrame.new(root.Position, hrp.Position)
-
-    -- dispara o RemoteEvent principal da tool (ataque)
-    local remEv = tool:FindFirstChild("RemoteEvent")
-    if remEv then
-        -- Blox Fruits fighting styles: FireServer com a posição do alvo
-        pcall(function()
-            remEv:FireServer(hrp.Position)
-        end)
-    end
-
-    -- fallback: tenta todos os RemoteEvents da tool
-    for _, v in ipairs(tool:GetDescendants()) do
-        if v:IsA("RemoteEvent") and v.Name ~= "EquipEvent" then
-            pcall(function()
-                v:FireServer(hrp.Position)
-            end)
+-- ============================================================
+-- PATCH 5: Auto Chest — cola no engine após autoQuest
+-- ============================================================
+local function autoChest()
+    if not getgenv().DRONX.AutoChest then return end
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        local nameLower = obj.Name:lower()
+        if nameLower:find("chest") and obj:IsA("Model") then
+            local hrp = obj:FindFirstChild("HumanoidRootPart")
+                or obj:FindFirstChildOfClass("BasePart")
+            if hrp then
+                local dist = (hrp.Position - root.Position).Magnitude
+                if dist < getgenv().DRONX.MaxDistance then
+                    root.CFrame = CFrame.new(hrp.Position)
+                    task.wait(0.2)
+                    for _, v in ipairs(obj:GetDescendants()) do
+                        if v:IsA("RemoteEvent") then
+                            pcall(function() v:FireServer() end)
+                        end
+                    end
+                end
+            end
         end
     end
 end
 
--- ── TRAVAR NPC (impede de fugir) ─────────────────────────────
-local function travarNPC(npc)
-    local hrp = npc:FindFirstChild("HumanoidRootPart")
-    local nhum = npc:FindFirstChildOfClass("Humanoid")
-    if not (hrp and nhum) then return end
-    pcall(function()
-        nhum.WalkSpeed  = 0
-        nhum.JumpPower  = 0
-        hrp.CanCollide  = false
-    end)
-end
-
--- ── SEGURANÇA ────────────────────────────────────────────────
-local function checkGround()
-    local params = RaycastParams.new()
-    params.FilterDescendantsInstances = {char}
-    local result = workspace:Raycast(root.Position, Vector3.new(0, -20, 0), params)
-    if not result then
-        root.CFrame = root.CFrame + Vector3.new(0, 10, 0)
-    end
-end
-
--- ── POÇÃO ────────────────────────────────────────────────────
-local function usarPocao()
-    for _, t in ipairs(player.Backpack:GetChildren()) do
-        if t:IsA("Tool") and t.Name:lower():find("potion") then
-            hum:EquipTool(t)
-            task.wait(0.1)
-            local ev = t:FindFirstChild("RemoteEvent")
-            if ev then pcall(function() ev:FireServer() end) end
-            return
-        end
-    end
-end
-
--- ── ENGINE ───────────────────────────────────────────────────
+-- ============================================================
+-- PATCH 6: engine atualizado — substitui o task.spawn completo
+-- ============================================================
 local currentNPC = nil
-local attackConn = nil
 
 task.spawn(function()
     while task.wait(0.1) do
@@ -156,7 +160,6 @@ task.spawn(function()
         checkGround()
 
         if getgenv().DRONX.AutoFarm or getgenv().DRONX.AutoMaestria then
-            -- pega novo NPC se o atual morreu ou não existe
             if not currentNPC then
                 currentNPC = getClosestNPC()
             else
@@ -167,13 +170,10 @@ task.spawn(function()
                     continue
                 end
             end
-
             if currentNPC then
                 local nhrp = currentNPC:FindFirstChild("HumanoidRootPart")
                 if nhrp then
-                    local dist = (nhrp.Position - root.Position).Magnitude
-                    -- se longe, teleporta
-                    if dist > 8 then
+                    if (nhrp.Position - root.Position).Magnitude > 8 then
                         snapToNPC(currentNPC)
                     end
                     travarNPC(currentNPC)
@@ -182,14 +182,15 @@ task.spawn(function()
             end
         end
 
-        -- auto heal
+        autoQuest()
+        autoChest()
+
         if getgenv().DRONX.AutoHeal then
             if hum.Health / hum.MaxHealth < getgenv().DRONX.HealThreshold then
                 usarPocao()
             end
         end
 
-        -- anti afk
         if getgenv().DRONX.AntiAFK then
             pcall(function()
                 VirtualUser:CaptureController()
@@ -201,31 +202,13 @@ task.spawn(function()
     end
 end)
 
--- ── GUI ──────────────────────────────────────────────────────
-local Fluent           = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-local SaveManager      = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
-
-local Window = Fluent:CreateWindow({
-    Title       = "DRONX v7.0",
-    SubTitle    = "nullsec philippines",
-    TabWidth    = 160,
-    Size        = UDim2.fromOffset(580, 460),
-    Acrylic     = false,
-    Theme       = "Dark",
-    MinimizeKey = Enum.KeyCode.RightControl,
-})
-
-local Tabs   = {
-    Main     = Window:AddTab({ Title = "Main",     Icon = "sword"    }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
-}
-local Options = Fluent.Options
-
+-- ============================================================
+-- PATCH 7: GUI — substitui o bloco do "do...end" inteiro
+-- ============================================================
 do
     Tabs.Main:AddParagraph({
-        Title   = "DRONX Engine",
-        Content = "v30 Sea3 detectada. Fighting style: Superhuman.",
+        Title   = "DRONX v7.1",
+        Content = "Place v" .. tostring(game.PlaceVersion) .. " | Sea3",
     })
 
     Tabs.Main:AddToggle("AutoFarm", {
@@ -256,14 +239,27 @@ do
 
     Tabs.Main:AddSlider("HealThreshold", {
         Title    = "Limiar de Cura (%)",
-        Default  = 50,
-        Min      = 10,
-        Max      = 90,
-        Rounding = 0,
+        Default  = 50, Min = 10, Max = 90, Rounding = 0,
         Callback = function(v)
             getgenv().DRONX.HealThreshold = v / 100
         end,
     })
+
+    Tabs.Main:AddToggle("AutoQuest", {
+        Title       = "Auto Quest",
+        Description = "Vai até o quest giver e aceita/entrega.",
+        Default     = false,
+    }):OnChanged(function()
+        getgenv().DRONX.AutoQuest = Options.AutoQuest.Value
+    end)
+
+    Tabs.Main:AddToggle("AutoChest", {
+        Title       = "Auto Chest",
+        Description = "Coleta baús no mapa.",
+        Default     = false,
+    }):OnChanged(function()
+        getgenv().DRONX.AutoChest = Options.AutoChest.Value
+    end)
 
     Tabs.Main:AddToggle("AntiAFK", {
         Title   = "Anti-AFK",
@@ -274,24 +270,26 @@ do
 
     Tabs.Main:AddSlider("MaxDistance", {
         Title    = "Distância Máxima (studs)",
-        Default  = 2000,
-        Min      = 100,
-        Max      = 5000,
-        Rounding = 0,
+        Default  = 2000, Min = 100, Max = 5000, Rounding = 0,
         Callback = function(v)
             getgenv().DRONX.MaxDistance = v
         end,
     })
 
-    Tabs.Main:AddInput("TipoArma", {
-        Title       = "Nome da Tool/Arma",
-        Default     = "Superhuman",
-        Placeholder = "ex: Superhuman, Saber, Dark Blade",
-        Finished    = true,
-        Callback    = function(v)
-            getgenv().DRONX.TipoArma = v
-        end,
-    })
+    Tabs.Main:AddDropdown("TipoArma", {
+        Title  = "Fighting Style / Arma",
+        Values = {
+            "Auto",
+            "Superhuman", "Electric", "Electric Claw",
+            "Sharkman Karate", "Death Step", "Rubber",
+            "Dark Step", "Water Kung Fu", "Dragon Talon",
+            "Godhuman", "Sanguine Art", "Thundergod",
+        },
+        Multi   = false,
+        Default = 1,
+    }):OnChanged(function(v)
+        getgenv().DRONX.TipoArma = v
+    end)
 
     Tabs.Main:AddButton({
         Title       = "TP Manual para NPC mais Próximo",
@@ -316,16 +314,3 @@ do
         end
     end)
 end
-
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
-InterfaceManager:SetFolder("DRONX")
-SaveManager:SetFolder("DRONX/BloxFruits")
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
-Window:SelectTab(1)
-Fluent:Notify({ Title = "DRONX v7.0", Content = "Pronto. Liga o Auto Farm.", Duration = 4 })
-SaveManager:LoadAutoloadConfig()
