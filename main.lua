@@ -1,7 +1,7 @@
+local BASE = "https://raw.githubusercontent.com/msddragon0/DronX-HUB/refs/heads/main/main.lua"
+
 local function load(file)
-    return loadstring(game:HttpGet(
-        "https://raw.githubusercontent.com/msddragon0/DronX-HUB/refs/heads/main/main.lua" .. file
-    ))()
+    loadstring(game:HttpGet(BASE .. file))()
 end
 
 load("config.lua")
@@ -9,6 +9,6 @@ load("utils.lua")
 load("movement.lua")
 load("combat.lua")
 load("farm.lua")
-load("quest.lua")
-load("chest.lua")
+load("teleport.lua")
+load("esp.lua")
 load("gui.lua")
