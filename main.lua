@@ -1,6 +1,6 @@
 local function load(file)
     return loadstring(game:HttpGet(
-        "https://raw.githubusercontent.com/SEU_USER/DRONX/main/" .. file
+        "https://raw.githubusercontent.com/msddragon0/DronX-HUB/refs/heads/main/main.lua" .. file
     ))()
 end
 
