@@ -102,6 +102,58 @@ do
         getgenv().DRONX.TipoArma = v
     end)
 
+    -- ── ESP ──────────────────────────────────────────────────────
+Tabs.Main:AddToggle("ESP", {
+    Title       = "ESP — NPCs",
+    Description = "Mostra nome e HP de todos os NPCs.",
+    Default     = false,
+}):OnChanged(function()
+    getgenv().DRONX.ESP = Options.ESP.Value
+    if not Options.ESP.Value then
+        getgenv().clearESP()
+    end
+end)
+
+Tabs.Main:AddToggle("ESP_Players", {
+    Title       = "ESP — Players",
+    Description = "Mostra nome e HP de outros jogadores.",
+    Default     = false,
+}):OnChanged(function()
+    getgenv().DRONX.ESP_Players = Options.ESP_Players.Value
+end)
+
+-- ── TELEPORTE POR ILHA ────────────────────────────────────────
+local ilhasList = {}
+for nome in pairs(getgenv().DRONX_ISLANDS) do
+    table.insert(ilhasList, nome)
+end
+table.sort(ilhasList)
+
+local selectedIsland = ilhasList[1]
+
+Tabs.Main:AddDropdown("Ilha", {
+    Title  = "Selecionar Ilha",
+    Values = ilhasList,
+    Multi  = false,
+    Default = 1,
+}):OnChanged(function(v)
+    selectedIsland = v
+end)
+
+Tabs.Main:AddButton({
+    Title       = "Teleportar para Ilha",
+    Description = "Move em steps — mais seguro contra ban.",
+    Callback    = function()
+        local dest = getgenv().DRONX_ISLANDS[selectedIsland]
+        if dest then
+            Fluent:Notify({ Title = "DRONX", Content = "Indo para " .. selectedIsland, Duration = 3 })
+            task.spawn(function()
+                getgenv().safeTeleport(dest)
+            end)
+        end
+    end,
+})
+
     Tabs.Main:AddButton({
         Title       = "TP Manual para NPC mais Próximo",
         Description = "Teleporta uma vez para testar.",
